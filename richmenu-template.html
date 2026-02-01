@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LINE Rich Menu Template</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #f0f0f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .container {
+      background: white;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .richmenu {
+      width: 2500px;
+      height: 1686px;
+      display: grid;
+      grid-template-rows: 562px 562px 562px;
+      grid-template-columns: 1250px 1250px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .button {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border: 3px solid rgba(255,255,255,0.3);
+      color: white;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: rgba(0,0,0,0.1);
+    }
+
+    .button:hover {
+      background: rgba(255,255,255,0.1);
+      transform: scale(1.02);
+    }
+
+    .button-icon {
+      font-size: 120px;
+      margin-bottom: 30px;
+    }
+
+    .button-text {
+      font-size: 60px;
+      font-weight: 600;
+      letter-spacing: 2px;
+    }
+
+    .button-subtext {
+      font-size: 40px;
+      margin-top: 10px;
+      opacity: 0.8;
+    }
+
+    /* 下段のボタン（3つ並び） */
+    .button-small {
+      grid-column: span 1;
+    }
+
+    .row-bottom {
+      display: grid;
+      grid-template-columns: 833px 834px 833px;
+      grid-column: span 2;
+    }
+
+    /* 色のカスタマイズ */
+    .button:nth-child(1) { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .button:nth-child(2) { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .button:nth-child(3) { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .button:nth-child(4) { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .button-small:nth-child(1) { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .button-small:nth-child(2) { background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); }
+    .button-small:nth-child(3) { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+
+    .instructions {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      max-width: 400px;
+      z-index: 1000;
+    }
+
+    .instructions h3 {
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .instructions ol {
+      margin-left: 20px;
+      line-height: 1.6;
+    }
+
+    .instructions button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .instructions button:hover {
+      background: #5568d3;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="instructions" id="instructions">
+    <h3>📝 スクリーンショット手順</h3>
+    <ol>
+      <li>下の「準備完了」ボタンをクリック</li>
+      <li>ブラウザのズームを調整（Cmd/Ctrl + 0）</li>
+      <li>リッチメニュー全体が画面に収まるようにする</li>
+      <li>スクリーンショットを撮影</li>
+      <li>画像を2500x1686pxにトリミング</li>
+      <li>richmenu.pngとして保存</li>
+    </ol>
+    <button onclick="document.getElementById('instructions').classList.add('hidden')">
+      準備完了 - 手順を非表示
+    </button>
+  </div>
+
+  <div class="container">
+    <div class="richmenu">
+      <!-- 上段 -->
+      <div class="button">
+        <div class="button-icon">🔄</div>
+        <div class="button-text">予定変更</div>
+        <div class="button-subtext">Change Event</div>
+      </div>
+      <div class="button">
+        <div class="button-icon">❌</div>
+        <div class="button-text">キャンセル</div>
+        <div class="button-subtext">Cancel</div>
+      </div>
+
+      <!-- 中段 -->
+      <div class="button">
+        <div class="button-icon">➕</div>
+        <div class="button-text">登録</div>
+        <div class="button-subtext">Add Event</div>
+      </div>
+      <div class="button">
+        <div class="button-icon">✅</div>
+        <div class="button-text">タスク</div>
+        <div class="button-subtext">Tasks</div>
+      </div>
+
+      <!-- 下段 -->
+      <div class="row-bottom">
+        <div class="button button-small">
+          <div class="button-icon">📋</div>
+          <div class="button-text" style="font-size: 50px;">Google</div>
+          <div class="button-text" style="font-size: 50px;">Tasks</div>
+        </div>
+        <div class="button button-small">
+          <div class="button-icon">📅</div>
+          <div class="button-text" style="font-size: 50px;">Google</div>
+          <div class="button-text" style="font-size: 50px;">Calendar</div>
+        </div>
+        <div class="button button-small">
+          <div class="button-icon">✨</div>
+          <div class="button-text" style="font-size: 50px;">Gemini</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ページ読み込み時にズームをリセット
+    document.body.style.zoom = "1";
+  </script>
+</body>
+</html>
