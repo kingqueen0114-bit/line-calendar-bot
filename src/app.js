@@ -7,7 +7,7 @@ import { verifySignature, replyLineMessage, sendLineMessage } from './line.js';
 import { createEvent, getUpcomingEvents, searchEvents, searchEventsInRange, deleteEvent, updateEvent } from './calendar.js';
 import { createTask, getUpcomingTasks, getAllIncompleteTasks, getTaskLists, completeTask } from './tasks.js';
 import { parseEventText } from './gemini.js';
-import { handleOAuthCallback, getAuthorizationUrl, isUserAuthenticated, getUserAccessToken } from './oauth.js';
+import { handleOAuthCallback, getAuthorizationUrl, isUserAuthenticated, getUserAccessToken, revokeUserTokens } from './oauth.js';
 
 // index.js からハンドラー関数をインポート（リファクタリング後）
 // 現在は index.js の内容を直接使用
@@ -70,7 +70,7 @@ async function handleFollowEvent(event, env) {
   if (isAuthenticated) {
     await replyLineMessage(
       replyToken,
-      '再度友だち追加ありがとうございます！\n\n既に認証済みですので、そのままご利用いただけます。',
+      '再度友だち追加ありがとうございます！\n\n既に認証済みですので、そのままご利用いただけます。\n\n⚠️ 他の人のデータが表示される場合は「リセット」と送信してください。',
       env.LINE_CHANNEL_ACCESS_TOKEN
     );
     return;
@@ -115,6 +115,18 @@ async function handleMessage(event, env, ctx) {
   const userMessage = event.message.text.trim();
 
   console.log('User message:', userMessage);
+
+  // リセットコマンド（認証前でも実行可能）
+  if (userMessage === 'リセット' || userMessage === 'reset' || userMessage === 'RESET') {
+    await revokeUserTokens(userId, env);
+    const authUrl = getAuthorizationUrl(userId, env);
+    await replyLineMessage(
+      replyToken,
+      '🔄 認証情報をリセットしました。\n\n新しくGoogleアカウントと連携してください：\n\n' + authUrl + '\n\n⚠️ 必ずご自身のGoogleアカウントでログインしてください。他の人から共有されたURLは使用しないでください。',
+      env.LINE_CHANNEL_ACCESS_TOKEN
+    );
+    return;
+  }
 
   // 認証チェック
   const isAuthenticated = await isUserAuthenticated(userId, env);
