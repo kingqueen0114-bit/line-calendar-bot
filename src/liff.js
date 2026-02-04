@@ -803,6 +803,28 @@ export function generateLiffHtml(liffId, apiBase) {
     }
     .uncomplete-btn:active { background: var(--border); }
 
+    /* リマインダーオプション */
+    .reminder-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .reminder-option {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: var(--bg);
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .reminder-option input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
+
     /* タスク タブ切替 */
     .task-tabs {
       display: flex;
@@ -1570,6 +1592,23 @@ export function generateLiffHtml(liffId, apiBase) {
           <label class="form-label">メモ（任意）</label>
           <textarea class="form-input" id="event-memo" placeholder="メモを入力" rows="2" style="resize:none;"></textarea>
         </div>
+        <div class="form-group" id="event-reminder-group">
+          <label class="form-label">リマインダー</label>
+          <div class="reminder-options">
+            <label class="reminder-option">
+              <input type="checkbox" id="event-reminder-day-before" value="day_before">
+              <span>前日18時</span>
+            </label>
+            <label class="reminder-option">
+              <input type="checkbox" id="event-reminder-morning" value="morning">
+              <span>当日朝9時</span>
+            </label>
+            <label class="reminder-option" id="event-reminder-1hour-option">
+              <input type="checkbox" id="event-reminder-1hour" value="1hour_before">
+              <span>1時間前</span>
+            </label>
+          </div>
+        </div>
         <button class="btn btn-primary" id="event-submit" onclick="submitEvent()">追加</button>
         <button class="btn btn-danger" id="event-delete" style="display:none;" onclick="deleteEvent()">削除</button>
       </div>
@@ -1591,6 +1630,31 @@ export function generateLiffHtml(liffId, apiBase) {
         <div class="form-group">
           <label class="form-label">期限（任意）</label>
           <input type="date" class="form-input" id="task-due">
+        </div>
+        <div class="form-group" id="task-time-row">
+          <label class="form-label">時刻（任意）</label>
+          <input type="time" class="form-input" id="task-due-time">
+        </div>
+        <div class="form-group" id="task-reminder-group">
+          <label class="form-label">リマインダー</label>
+          <div class="reminder-options">
+            <label class="reminder-option">
+              <input type="checkbox" id="task-reminder-1week" value="1week_before">
+              <span>1週間前</span>
+            </label>
+            <label class="reminder-option">
+              <input type="checkbox" id="task-reminder-3days" value="3days_before">
+              <span>3日前</span>
+            </label>
+            <label class="reminder-option">
+              <input type="checkbox" id="task-reminder-day-before" value="day_before">
+              <span>前日18時</span>
+            </label>
+            <label class="reminder-option">
+              <input type="checkbox" id="task-reminder-morning" value="morning">
+              <span>当日朝9時</span>
+            </label>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">リスト</label>
@@ -2650,6 +2714,12 @@ export function generateLiffHtml(liffId, apiBase) {
       document.getElementById('event-url').value = urlLine || '';
       document.getElementById('event-memo').value = lines.filter(l => !l.startsWith('http')).join('\\n').trim();
 
+      // 編集時はリマインダーをリセット（既存のリマインダー設定は維持されるが新規追加不可）
+      document.getElementById('event-reminder-day-before').checked = false;
+      document.getElementById('event-reminder-morning').checked = false;
+      document.getElementById('event-reminder-1hour').checked = false;
+      document.getElementById('event-reminder-1hour-option').style.display = isAllDay ? 'none' : 'flex';
+
       document.getElementById('event-submit').textContent = '更新';
       document.getElementById('event-submit').style.display = 'block';
       document.getElementById('event-delete').style.display = 'none';
@@ -2715,6 +2785,10 @@ export function generateLiffHtml(liffId, apiBase) {
     function setTaskFilter(filter) {
       taskFilter = filter;
       renderTasks();
+      // 完了済みタスクが表示中の場合は再描画
+      if (showCompletedTasks) {
+        renderCompletedTasks();
+      }
     }
 
     function renderTasks() {
@@ -2850,20 +2924,36 @@ export function generateLiffHtml(liffId, apiBase) {
 
     function renderCompletedTasks() {
       const container = document.getElementById('completed-task-list');
-      const allCompleted = getAllCompletedTasks();
+      let allCompleted = getAllCompletedTasks();
+
+      // フィルタリング（renderTasksと同じロジック）
+      if (taskFilter === 'personal') {
+        allCompleted = allCompleted.filter(t => !t.isShared);
+      } else if (taskFilter.startsWith('list_')) {
+        const listId = taskFilter.replace('list_', '');
+        allCompleted = allCompleted.filter(t => t.isShared && t.listId === listId);
+      }
+      // 'all' の場合はフィルタなし
+
       const countEl = document.getElementById('completed-count');
       countEl.textContent = allCompleted.length + '件';
 
       if (allCompleted.length === 0) {
-        container.innerHTML = '<div class="empty" style="padding:20px;">完了済みタスクはありません</div>';
+        const emptyMsg = taskFilter === 'all' ? '完了済みタスクはありません' :
+                         taskFilter === 'personal' ? '完了済みマイタスクはありません' :
+                         'このリストに完了済みタスクはありません';
+        container.innerHTML = '<div class="empty" style="padding:20px;">' + emptyMsg + '</div>';
         return;
       }
 
       let html = '';
-      allCompleted.forEach((task, i) => {
+      allCompleted.forEach((task) => {
         const isShared = task.isShared;
-        const indexStr = isShared ? 'cshared_' + i : 'c_' + i;
-        html += '<div class="completed-task-item">';
+        const actualIndex = isShared ? completedSharedTasks.indexOf(task) : completedTasks.indexOf(task);
+        const indexStr = isShared ? 'cshared_' + actualIndex : 'c_' + actualIndex;
+        const listColor = task.listColor || null;
+        const borderStyle = isShared && listColor ? ' style="border-left: 4px solid ' + listColor + ';"' : '';
+        html += '<div class="completed-task-item"' + borderStyle + '>';
         html += '<div class="task-checkbox"></div>';
         html += '<div class="task-content">';
         html += '<div class="task-title">' + escapeHtml(task.title) + '</div>';
@@ -2873,6 +2963,9 @@ export function generateLiffHtml(liffId, apiBase) {
         }
         if (isShared && task.completedBy) {
           html += '<div class="completed-by">完了者: ' + (task.completedByName || task.completedBy.substring(0, 8) + '...') + '</div>';
+        }
+        if (isShared && task.listTitle) {
+          html += '<div style="font-size:10px;color:' + (listColor || 'var(--primary)') + ';">' + escapeHtml(task.listTitle) + '</div>';
         }
         html += '</div>';
         html += '<button class="uncomplete-btn" onclick="event.stopPropagation(); uncompleteTask(\\'' + indexStr + '\\')">戻す</button>';
@@ -3681,6 +3774,11 @@ export function generateLiffHtml(liffId, apiBase) {
       document.getElementById('event-location').value = '';
       document.getElementById('event-url').value = '';
       document.getElementById('event-memo').value = '';
+      // リマインダーのリセット
+      document.getElementById('event-reminder-day-before').checked = false;
+      document.getElementById('event-reminder-morning').checked = false;
+      document.getElementById('event-reminder-1hour').checked = false;
+      document.getElementById('event-reminder-1hour-option').style.display = 'flex';
       document.getElementById('event-submit').textContent = '追加';
       document.getElementById('event-submit').style.display = 'block';
       document.getElementById('event-delete').style.display = 'none';
@@ -3701,6 +3799,14 @@ export function generateLiffHtml(liffId, apiBase) {
       document.getElementById('task-modal-title').textContent = 'タスクを追加';
       document.getElementById('task-title').value = '';
       document.getElementById('task-due').value = '';
+      document.getElementById('task-due-time').value = '';
+      // 時刻とリマインダーを表示
+      document.getElementById('task-time-row').style.display = 'block';
+      document.getElementById('task-reminder-group').style.display = 'block';
+      document.getElementById('task-reminder-1week').checked = false;
+      document.getElementById('task-reminder-3days').checked = false;
+      document.getElementById('task-reminder-day-before').checked = false;
+      document.getElementById('task-reminder-morning').checked = false;
 
       const select = document.getElementById('task-list-select');
       select.disabled = false;
@@ -3731,6 +3837,24 @@ export function generateLiffHtml(liffId, apiBase) {
       document.getElementById('task-modal-title').textContent = 'タスクの詳細';
       document.getElementById('task-title').value = task.title;
       document.getElementById('task-due').value = task.due ? task.due.substring(0, 10) : '';
+
+      // 時刻を抽出（ISO形式から）
+      const hasDate = !!task.due;
+      let dueTime = '';
+      if (task.due && task.due.includes('T')) {
+        const timePart = task.due.split('T')[1];
+        if (timePart && timePart !== '00:00:00Z' && timePart !== '00:00:00.000Z') {
+          dueTime = timePart.substring(0, 5);
+        }
+      }
+      document.getElementById('task-due-time').value = dueTime;
+      // 詳細表示時はリマインダーオプションは非表示（新規作成時のみ設定可能）
+      document.getElementById('task-reminder-group').style.display = 'none';
+      document.getElementById('task-time-row').style.display = 'block';
+      document.getElementById('task-reminder-1week').checked = false;
+      document.getElementById('task-reminder-3days').checked = false;
+      document.getElementById('task-reminder-day-before').checked = false;
+      document.getElementById('task-reminder-morning').checked = false;
 
       const select = document.getElementById('task-list-select');
       if (isShared) {
@@ -3869,6 +3993,12 @@ export function generateLiffHtml(liffId, apiBase) {
       const url = document.getElementById('event-url').value.trim();
       const memo = document.getElementById('event-memo').value.trim();
 
+      // リマインダー収集
+      const reminders = [];
+      if (document.getElementById('event-reminder-day-before').checked) reminders.push('day_before');
+      if (document.getElementById('event-reminder-morning').checked) reminders.push('morning');
+      if (!isAllDay && document.getElementById('event-reminder-1hour').checked) reminders.push('1hour_before');
+
       if (!title || !date) {
         showToast('タイトルと日付を入力してください');
         return;
@@ -3884,7 +4014,7 @@ export function generateLiffHtml(liffId, apiBase) {
           await fetch(API_BASE + '/api/shared-events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, projectId, title, date, isAllDay, startTime: isAllDay ? null : startTime, endTime: isAllDay ? null : endTime, location, url, memo })
+            body: JSON.stringify({ userId, projectId, title, date, isAllDay, startTime: isAllDay ? null : startTime, endTime: isAllDay ? null : endTime, location, url, memo, reminders })
           });
           await loadSharedEvents();
         } else {
@@ -3892,7 +4022,7 @@ export function generateLiffHtml(liffId, apiBase) {
           const response = await fetch(API_BASE + '/api/events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, title, date, isAllDay, startTime, endTime, location, url, memo })
+            body: JSON.stringify({ userId, title, date, isAllDay, startTime, endTime, location, url, memo, reminders })
           });
           if (!response.ok) {
             const err = await response.json();
@@ -3950,8 +4080,26 @@ export function generateLiffHtml(liffId, apiBase) {
 
     async function submitTask() {
       const title = document.getElementById('task-title').value.trim();
-      const due = document.getElementById('task-due').value || null;
+      const dueDate = document.getElementById('task-due').value || null;
+      const dueTime = document.getElementById('task-due-time').value || null;
       const listValue = document.getElementById('task-list-select').value;
+
+      // リマインダー収集
+      const reminders = [];
+      if (document.getElementById('task-reminder-1week').checked) reminders.push('1week_before');
+      if (document.getElementById('task-reminder-3days').checked) reminders.push('3days_before');
+      if (document.getElementById('task-reminder-day-before').checked) reminders.push('day_before');
+      if (document.getElementById('task-reminder-morning').checked) reminders.push('morning');
+
+      // 時刻付き期限の作成
+      let due = null;
+      if (dueDate) {
+        if (dueTime) {
+          due = dueDate + 'T' + dueTime;
+        } else {
+          due = dueDate;
+        }
+      }
 
       if (!title) {
         showToast('タイトルを入力してください');
@@ -3977,7 +4125,7 @@ export function generateLiffHtml(liffId, apiBase) {
           await fetch(API_BASE + '/api/tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, title, due, listName })
+            body: JSON.stringify({ userId, title, due, listName, reminders })
           });
           await loadTasks();
         }
@@ -4036,18 +4184,22 @@ export function generateLiffHtml(liffId, apiBase) {
       btn.textContent = '保存中...';
 
       try {
-        await fetch(API_BASE + '/api/memos', {
+        const response = await fetch(API_BASE + '/api/memos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId, text, imageBase64: selectedImageBase64 })
         });
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || 'メモの保存に失敗しました');
+        }
         showToast('メモを保存しました');
         closeMemoModal();
         await loadMemos();
         renderMemos();
       } catch (error) {
         console.error('Failed to create memo:', error);
-        showToast('エラーが発生しました');
+        showToast(error.message || 'エラーが発生しました');
       } finally {
         btn.disabled = false;
         btn.textContent = '保存';
@@ -4202,7 +4354,15 @@ export function generateLiffHtml(liffId, apiBase) {
 
     function formatDueDate(due) {
       const date = new Date(due);
-      return (date.getMonth() + 1) + '/' + date.getDate();
+      const dateStr = (date.getMonth() + 1) + '/' + date.getDate();
+      // 時刻が00:00:00以外の場合は時刻も表示
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      if (hours !== 0 || minutes !== 0) {
+        const timeStr = String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0');
+        return dateStr + ' ' + timeStr;
+      }
+      return dateStr;
     }
 
     // ========================================
@@ -4278,7 +4438,29 @@ export function generateLiffHtml(liffId, apiBase) {
 
     document.getElementById('event-allday').addEventListener('change', (e) => {
       document.getElementById('event-time-row').style.display = e.target.checked ? 'none' : 'flex';
+      // 終日予定の場合は「1時間前」リマインダーを非表示
+      document.getElementById('event-reminder-1hour-option').style.display = e.target.checked ? 'none' : 'flex';
+      if (e.target.checked) {
+        document.getElementById('event-reminder-1hour').checked = false;
+      }
     });
+
+    // タスク期限日付変更時のハンドラー（change + input 両方で確実に発火）
+    function handleTaskDueChange() {
+      const hasDate = document.getElementById('task-due').value !== '';
+      document.getElementById('task-time-row').style.display = hasDate ? 'block' : 'none';
+      document.getElementById('task-reminder-group').style.display = hasDate ? 'block' : 'none';
+      if (!hasDate) {
+        document.getElementById('task-due-time').value = '';
+        document.getElementById('task-reminder-1week').checked = false;
+        document.getElementById('task-reminder-3days').checked = false;
+        document.getElementById('task-reminder-day-before').checked = false;
+        document.getElementById('task-reminder-morning').checked = false;
+      }
+    }
+    document.getElementById('task-due').addEventListener('change', handleTaskDueChange);
+    document.getElementById('task-due').addEventListener('input', handleTaskDueChange);
+    document.getElementById('task-due').addEventListener('blur', handleTaskDueChange);
 
     document.getElementById('event-start').addEventListener('change', (e) => {
       const startTime = e.target.value;

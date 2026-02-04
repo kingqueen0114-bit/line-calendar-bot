@@ -41,9 +41,20 @@ export async function createTask(taskData, userId, env) {
   };
 
   // 期限があれば追加（RFC3339形式）
-  // 日付のみのタスクとして扱う（時刻なし）
   if (taskData.due) {
-    task.due = `${taskData.due}T00:00:00Z`;
+    if (taskData.due.includes('T')) {
+      // 時刻付き: JST→UTC変換してISO形式に
+      // フロントから送られてくるのは「YYYY-MM-DDTHH:MM」形式（JSTローカル時間）
+      const [datePart, timePart] = taskData.due.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hours, minutes] = timePart.split(':').map(Number);
+      // JSTはUTC+9なので、9時間引いてUTCにする
+      const jstDate = new Date(year, month - 1, day, hours, minutes);
+      task.due = jstDate.toISOString();
+    } else {
+      // 日付のみ
+      task.due = `${taskData.due}T00:00:00Z`;
+    }
   }
 
   // メモ（場所やURL）とスターマーカーを追加

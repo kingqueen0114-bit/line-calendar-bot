@@ -84,6 +84,20 @@ app.get('/liff', async (req, res) => {
   res.type('html').send(html);
 });
 
+// LIFF アプリ (キャッシュ回避用)
+app.get('/liff2', async (req, res) => {
+  const { generateLiffHtml } = await import('./liff.js');
+  const liffId = process.env.LIFF_ID || 'YOUR_LIFF_ID';
+  const apiBase = `https://${req.get('host')}`;
+  const html = generateLiffHtml(liffId, apiBase);
+  res.set({
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0'
+  });
+  res.type('html').send(html);
+});
+
 // LIFF API: 認証状態確認
 app.get('/api/auth-status', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -285,7 +299,7 @@ app.post('/api/tasks/update', async (req, res) => {
 // 予定作成
 app.post('/api/events', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, title, date, startTime, endTime, isAllDay, location, url, memo } = req.body;
+  const { userId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders } = req.body;
 
   if (!userId || !title || !date) {
     return res.status(400).json({ error: 'userId, title, date required' });
@@ -312,6 +326,25 @@ app.post('/api/events', async (req, res) => {
     };
 
     const result = await createEvent(eventData, userId, env);
+
+    // リマインダーがある場合はKVに保存
+    if (reminders && reminders.length > 0) {
+      const reminderData = {
+        type: 'event',
+        title,
+        date,
+        startTime: isAllDay ? null : startTime,
+        isAllDay: isAllDay || false,
+        reminders,
+        createdAt: new Date().toISOString()
+      };
+      await env.NOTIFICATIONS.put(
+        `event_reminder_${userId}_${result.id}`,
+        JSON.stringify(reminderData),
+        { expirationTtl: 30 * 24 * 60 * 60 } // 30日
+      );
+    }
+
     res.json(result);
   } catch (err) {
     console.error('Create event error:', err);
@@ -374,7 +407,7 @@ app.get('/api/tasklists', async (req, res) => {
 // タスク作成
 app.post('/api/tasks', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, title, due, listName } = req.body;
+  const { userId, title, due, listName, reminders } = req.body;
 
   if (!userId || !title) {
     return res.status(400).json({ error: 'userId, title required' });
@@ -391,6 +424,23 @@ app.post('/api/tasks', async (req, res) => {
 
     const taskData = { title, due, listName };
     const result = await createTask(taskData, userId, env);
+
+    // リマインダーがある場合はKVに保存
+    if (reminders && reminders.length > 0 && due) {
+      const reminderData = {
+        type: 'task',
+        title,
+        due,
+        reminders,
+        createdAt: new Date().toISOString()
+      };
+      await env.NOTIFICATIONS.put(
+        `task_reminder_${userId}_${result.id}`,
+        JSON.stringify(reminderData),
+        { expirationTtl: 90 * 24 * 60 * 60 } // 90日
+      );
+    }
+
     res.json(result);
   } catch (err) {
     console.error('Create task error:', err);
