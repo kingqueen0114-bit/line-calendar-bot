@@ -1244,6 +1244,13 @@ export function generateLiffHtml(liffId, apiBase) {
       font-size: 14px;
       text-decoration: none;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      border: none;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .auth-banner-btn:active {
+      transform: scale(0.98);
+      opacity: 0.9;
     }
   </style>
 </head>
@@ -1258,7 +1265,7 @@ export function generateLiffHtml(liffId, apiBase) {
     <div class="auth-banner" id="auth-banner">
       <h3>🔐 Google連携が必要です</h3>
       <p>カレンダーやタスクを利用するには、<br>Googleアカウントとの連携が必要です。</p>
-      <a class="auth-banner-btn" id="auth-banner-btn" href="#" target="_blank">Googleアカウントを連携</a>
+      <button class="auth-banner-btn" id="auth-banner-btn" onclick="openGoogleAuth()">Googleアカウントを連携</button>
     </div>
 
     <div class="main">
@@ -3902,7 +3909,6 @@ export function generateLiffHtml(liffId, apiBase) {
 
     function updateAuthDisplay() {
       const authBanner = document.getElementById('auth-banner');
-      const authBannerBtn = document.getElementById('auth-banner-btn');
       const googleAuthValue = document.getElementById('google-auth-value');
 
       if (isGoogleAuthenticated) {
@@ -3913,11 +3919,29 @@ export function generateLiffHtml(liffId, apiBase) {
         authBanner.classList.add('show');
         document.body.classList.add('needs-auth');
         if (googleAuthUrl) {
-          authBannerBtn.href = googleAuthUrl;
-          googleAuthValue.innerHTML = '<a href="' + googleAuthUrl + '" target="_blank" style="color:#ff9800;text-decoration:underline;">連携する</a>';
+          googleAuthValue.innerHTML = '<button onclick="openGoogleAuth()" style="color:#ff9800;background:none;border:none;text-decoration:underline;font-size:inherit;cursor:pointer;">連携する</button>';
         } else {
           googleAuthValue.textContent = '未連携';
         }
+      }
+    }
+
+    function openGoogleAuth() {
+      if (googleAuthUrl) {
+        liff.openWindow({
+          url: googleAuthUrl,
+          external: true
+        });
+      } else {
+        showToast('認証URLを取得中...');
+        getGoogleAuthUrl().then(() => {
+          if (googleAuthUrl) {
+            liff.openWindow({
+              url: googleAuthUrl,
+              external: true
+            });
+          }
+        });
       }
     }
 
