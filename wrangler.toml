@@ -11,10 +11,13 @@ kv_namespaces = [
 [triggers]
 crons = ["*/15 * * * *"]
 
-# 環境変数（後でSecretで設定）
+# 環境変数（wrangler secret putで設定）
 # LINE_CHANNEL_ACCESS_TOKEN
 # LINE_CHANNEL_SECRET
 # GOOGLE_CLIENT_ID
 # GOOGLE_CLIENT_SECRET
-# GOOGLE_REFRESH_TOKEN
+# OAUTH_REDIRECT_URI (NEW: OAuth callback URL)
 # GEMINI_API_KEY
+# LIFF_ID (LIFF app ID from LINE Developers Console)
+#
+# Note: GOOGLE_REFRESH_TOKEN is no longer needed (multi-user OAuth)

@@ -1,41 +1,13 @@
 /**
  * Google Calendar API操作
  */
-
-// OAuth 2.0トークン更新
-async function refreshAccessToken(clientId, clientSecret, refreshToken) {
-  console.log('refreshAccessToken: Starting token refresh...');
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token'
-    })
-  });
-
-  const data = await response.json();
-  console.log('refreshAccessToken: Response received, ok:', response.ok);
-  if (!data.access_token) {
-    console.error('refreshAccessToken: Failed -', JSON.stringify(data));
-    throw new Error('トークン更新失敗: ' + JSON.stringify(data));
-  }
-  console.log('refreshAccessToken: Success');
-  
-  return data.access_token;
-}
+import { getUserAccessToken } from './oauth.js';
 
 // イベントを作成
-export async function createEvent(eventData, env) {
+export async function createEvent(eventData, userId, env) {
   console.log('createEvent: Received eventData:', JSON.stringify(eventData));
-  console.log('createEvent: Refreshing access token...');
-  const accessToken = await refreshAccessToken(
-    env.GOOGLE_CLIENT_ID,
-    env.GOOGLE_CLIENT_SECRET,
-    env.GOOGLE_REFRESH_TOKEN
-  );
+  console.log('createEvent: Getting user access token for:', userId);
+  const accessToken = await getUserAccessToken(userId, env);
   console.log('createEvent: Access token obtained');
 
   // テスト：まずGETリクエストで接続確認
@@ -91,11 +63,18 @@ export async function createEvent(eventData, env) {
     console.log('Location added:', event.location);
   }
 
-  // URLがあれば説明に追加
-  console.log('Checking url:', eventData.url);
+  // URLとメモを説明に追加
+  let description = '';
   if (eventData.url) {
-    event.description = eventData.url;
-    console.log('URL added:', event.description);
+    description += eventData.url;
+  }
+  if (eventData.memo) {
+    if (description) description += '\n\n';
+    description += eventData.memo;
+  }
+  if (description) {
+    event.description = description;
+    console.log('Description added:', event.description);
   }
 
   // 終日予定でない場合のみ、終了時刻の調整を行う
@@ -141,27 +120,24 @@ export async function createEvent(eventData, env) {
 }
 
 // 今後のイベントを取得
-export async function getUpcomingEvents(env) {
-  const accessToken = await refreshAccessToken(
-    env.GOOGLE_CLIENT_ID,
-    env.GOOGLE_CLIENT_SECRET,
-    env.GOOGLE_REFRESH_TOKEN
-  );
+export async function getUpcomingEvents(userId, env, daysAhead = 2) {
+  const accessToken = await getUserAccessToken(userId, env);
 
-  // 日本時間で現在時刻を取得
+  // 日本時間で今日の0時を取得
   const now = new Date();
-  const jstOffset = 9 * 60 * 60 * 1000;
-  const jstNow = new Date(now.getTime() + jstOffset);
-  
-  // 48時間後まで
-  const timeMax = new Date(jstNow.getTime() + 48 * 60 * 60 * 1000);
+  // 日本時間で今日の日付を取得
+  const jstNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  const todayStart = new Date(jstNow.getFullYear(), jstNow.getMonth(), jstNow.getDate());
+
+  // 指定日数後まで（デフォルト2日）
+  const timeMax = new Date(todayStart.getTime() + daysAhead * 24 * 60 * 60 * 1000);
 
   const params = new URLSearchParams({
-    timeMin: jstNow.toISOString(),
+    timeMin: todayStart.toISOString(),
     timeMax: timeMax.toISOString(),
     singleEvents: 'true',
     orderBy: 'startTime',
-    maxResults: '50'
+    maxResults: '100'
   });
 
   const response = await fetch(
@@ -181,16 +157,12 @@ export async function getUpcomingEvents(env) {
 }
 
 // キーワードで予定を検索（今日・明日のみ）
-export async function searchEvents(keyword, env) {
+export async function searchEvents(keyword, userId, env) {
   console.log('searchEvents: Function started with keyword:', keyword);
 
   try {
-    console.log('searchEvents: Calling refreshAccessToken...');
-    const accessToken = await refreshAccessToken(
-      env.GOOGLE_CLIENT_ID,
-      env.GOOGLE_CLIENT_SECRET,
-      env.GOOGLE_REFRESH_TOKEN
-    );
+    console.log('searchEvents: Getting user access token...');
+    const accessToken = await getUserAccessToken(userId, env);
     console.log('searchEvents: Access token obtained');
 
     // 日本時間で今日の00:00を取得
@@ -246,14 +218,10 @@ export async function searchEvents(keyword, env) {
 }
 
 // 指定期間で予定を検索
-export async function searchEventsInRange(timeMin, timeMax, keyword, env) {
+export async function searchEventsInRange(timeMin, timeMax, keyword, userId, env) {
   console.log('searchEventsInRange: From:', timeMin, 'To:', timeMax);
 
-  const accessToken = await refreshAccessToken(
-    env.GOOGLE_CLIENT_ID,
-    env.GOOGLE_CLIENT_SECRET,
-    env.GOOGLE_REFRESH_TOKEN
-  );
+  const accessToken = await getUserAccessToken(userId, env);
 
   const params = new URLSearchParams({
     timeMin: timeMin,
@@ -284,12 +252,8 @@ export async function searchEventsInRange(timeMin, timeMax, keyword, env) {
 }
 
 // 予定を削除
-export async function deleteEvent(eventId, env) {
-  const accessToken = await refreshAccessToken(
-    env.GOOGLE_CLIENT_ID,
-    env.GOOGLE_CLIENT_SECRET,
-    env.GOOGLE_REFRESH_TOKEN
-  );
+export async function deleteEvent(eventId, userId, env) {
+  const accessToken = await getUserAccessToken(userId, env);
 
   const response = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
@@ -308,12 +272,8 @@ export async function deleteEvent(eventId, env) {
 }
 
 // 予定を更新
-export async function updateEvent(eventId, updateData, env) {
-  const accessToken = await refreshAccessToken(
-    env.GOOGLE_CLIENT_ID,
-    env.GOOGLE_CLIENT_SECRET,
-    env.GOOGLE_REFRESH_TOKEN
-  );
+export async function updateEvent(eventId, updateData, userId, env) {
+  const accessToken = await getUserAccessToken(userId, env);
 
   // まず既存の予定を取得
   const getResponse = await fetch(

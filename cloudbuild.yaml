@@ -1,0 +1,37 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/line-calendar-bot', '.']
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/line-calendar-bot']
+
+  # Deploy container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'line-calendar-bot'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/line-calendar-bot'
+      - '--region'
+      - 'asia-northeast1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'LINE_CHANNEL_ACCESS_TOKEN=${_LINE_CHANNEL_ACCESS_TOKEN},LINE_CHANNEL_SECRET=${_LINE_CHANNEL_SECRET},GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID},GOOGLE_CLIENT_SECRET=${_GOOGLE_CLIENT_SECRET},OAUTH_REDIRECT_URI=${_OAUTH_REDIRECT_URI},GEMINI_API_KEY=${_GEMINI_API_KEY},LIFF_ID=${_LIFF_ID}'
+
+images:
+  - 'gcr.io/$PROJECT_ID/line-calendar-bot'
+
+substitutions:
+  _LINE_CHANNEL_ACCESS_TOKEN: ''
+  _LINE_CHANNEL_SECRET: ''
+  _GOOGLE_CLIENT_ID: ''
+  _GOOGLE_CLIENT_SECRET: ''
+  _OAUTH_REDIRECT_URI: ''
+  _GEMINI_API_KEY: ''
+  _LIFF_ID: ''

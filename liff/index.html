@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendar & Tasks</title>
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #06c755 0%, #00b341 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .tabs {
+      display: flex;
+      background: white;
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      border: none;
+      background: transparent;
+      font-size: 14px;
+      font-weight: 600;
+      color: #666;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: #06c755;
+      color: white;
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    /* Calendar Styles */
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .calendar-header h2 {
+      font-size: 18px;
+    }
+
+    .calendar-nav {
+      display: flex;
+      gap: 8px;
+    }
+
+    .calendar-nav button {
+      width: 36px;
+      height: 36px;
+      border: none;
+      background: #f0f0f0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .calendar-grid {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .calendar-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .weekday {
+      text-align: center;
+      font-size: 12px;
+      color: #999;
+      padding: 8px 0;
+    }
+
+    .calendar-days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+
+    .day {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .day:hover {
+      background: #f0f0f0;
+    }
+
+    .day.today {
+      background: #06c755;
+      color: white;
+    }
+
+    .day.has-event::after {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: #ff6b6b;
+      border-radius: 50%;
+      position: absolute;
+      bottom: 4px;
+    }
+
+    .day.other-month {
+      color: #ccc;
+    }
+
+    .events-list {
+      margin-top: 16px;
+    }
+
+    .event-item {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border-left: 4px solid #06c755;
+    }
+
+    .event-item h3 {
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .event-item p {
+      font-size: 13px;
+      color: #666;
+    }
+
+    /* Tasks Styles */
+    .task-list {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid #f0f0f0;
+      gap: 12px;
+    }
+
+    .task-item:last-child {
+      border-bottom: none;
+    }
+
+    .task-checkbox {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #ddd;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .task-checkbox:hover {
+      border-color: #06c755;
+    }
+
+    .task-checkbox.checked {
+      background: #06c755;
+      border-color: #06c755;
+    }
+
+    .task-checkbox.checked::after {
+      content: '✓';
+      color: white;
+      font-size: 14px;
+    }
+
+    .task-content {
+      flex: 1;
+    }
+
+    .task-title {
+      font-size: 15px;
+      margin-bottom: 2px;
+    }
+
+    .task-title.completed {
+      text-decoration: line-through;
+      color: #999;
+    }
+
+    .task-due {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .task-star {
+      color: #ffc107;
+      font-size: 18px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .error {
+      background: #ffebee;
+      color: #c62828;
+      padding: 16px;
+      border-radius: 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📅 Calendar & Tasks</h1>
+      <p id="user-name">読み込み中...</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="calendar">📅 カレンダー</button>
+      <button class="tab" data-tab="tasks">✅ タスク</button>
+    </div>
+
+    <!-- Calendar Section -->
+    <div id="calendar" class="section active">
+      <div class="calendar-header">
+        <button class="nav-btn" id="prev-month">◀</button>
+        <h2 id="current-month">2024年1月</h2>
+        <button class="nav-btn" id="next-month">▶</button>
+      </div>
+
+      <div class="calendar-grid">
+        <div class="calendar-weekdays">
+          <div class="weekday">日</div>
+          <div class="weekday">月</div>
+          <div class="weekday">火</div>
+          <div class="weekday">水</div>
+          <div class="weekday">木</div>
+          <div class="weekday">金</div>
+          <div class="weekday">土</div>
+        </div>
+        <div class="calendar-days" id="calendar-days">
+          <!-- Days will be generated by JavaScript -->
+        </div>
+      </div>
+
+      <div class="events-list" id="events-list">
+        <div class="loading">予定を読み込み中...</div>
+      </div>
+    </div>
+
+    <!-- Tasks Section -->
+    <div id="tasks" class="section">
+      <div class="task-list" id="task-list">
+        <div class="loading">タスクを読み込み中...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // LIFF ID (LINE Developers Consoleで取得)
+    const LIFF_ID = 'YOUR_LIFF_ID';
+    const API_BASE = 'https://line-calendar-bot.kingqueen0114.workers.dev';
+
+    let currentDate = new Date();
+    let events = [];
+    let tasks = [];
+    let userId = null;
+
+    // Initialize LIFF
+    async function initializeLiff() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        userId = profile.userId;
+        document.getElementById('user-name').textContent = profile.displayName;
+
+        // Load data
+        await loadEvents();
+        await loadTasks();
+        renderCalendar();
+      } catch (error) {
+        console.error('LIFF initialization failed:', error);
+        document.getElementById('user-name').textContent = 'エラーが発生しました';
+      }
+    }
+
+    // Load events from API
+    async function loadEvents() {
+      try {
+        const response = await fetch(`${API_BASE}/api/events?userId=${userId}`);
+        if (response.ok) {
+          events = await response.json();
+        }
+      } catch (error) {
+        console.error('Failed to load events:', error);
+      }
+    }
+
+    // Load tasks from API
+    async function loadTasks() {
+      try {
+        const response = await fetch(`${API_BASE}/api/tasks?userId=${userId}`);
+        if (response.ok) {
+          tasks = await response.json();
+          renderTasks();
+        }
+      } catch (error) {
+        console.error('Failed to load tasks:', error);
+      }
+    }
+
+    // Render calendar
+    function renderCalendar() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+
+      document.getElementById('current-month').textContent =
+        `${year}年${month + 1}月`;
+
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startDayOfWeek = firstDay.getDay();
+
+      const daysContainer = document.getElementById('calendar-days');
+      daysContainer.innerHTML = '';
+
+      // Previous month days
+      const prevMonthLastDay = new Date(year, month, 0).getDate();
+      for (let i = startDayOfWeek - 1; i >= 0; i--) {
+        const dayEl = createDayElement(prevMonthLastDay - i, true);
+        daysContainer.appendChild(dayEl);
+      }
+
+      // Current month days
+      const today = new Date();
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const isToday =
+          today.getFullYear() === year &&
+          today.getMonth() === month &&
+          today.getDate() === day;
+
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const hasEvent = events.some(e => e.start.dateTime?.startsWith(dateStr) || e.start.date === dateStr);
+
+        const dayEl = createDayElement(day, false, isToday, hasEvent);
+        dayEl.addEventListener('click', () => showDayEvents(year, month, day));
+        daysContainer.appendChild(dayEl);
+      }
+
+      // Next month days
+      const remainingDays = 42 - daysContainer.children.length;
+      for (let i = 1; i <= remainingDays; i++) {
+        const dayEl = createDayElement(i, true);
+        daysContainer.appendChild(dayEl);
+      }
+
+      // Show today's events by default
+      showDayEvents(today.getFullYear(), today.getMonth(), today.getDate());
+    }
+
+    function createDayElement(day, isOtherMonth, isToday = false, hasEvent = false) {
+      const el = document.createElement('div');
+      el.className = 'day';
+      if (isOtherMonth) el.classList.add('other-month');
+      if (isToday) el.classList.add('today');
+      if (hasEvent) el.classList.add('has-event');
+      el.textContent = day;
+      return el;
+    }
+
+    function showDayEvents(year, month, day) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayEvents = events.filter(e =>
+        e.start.dateTime?.startsWith(dateStr) || e.start.date === dateStr
+      );
+
+      const container = document.getElementById('events-list');
+
+      if (dayEvents.length === 0) {
+        container.innerHTML = '<div class="empty">この日の予定はありません</div>';
+        return;
+      }
+
+      container.innerHTML = dayEvents.map(event => `
+        <div class="event-item">
+          <h3>${event.summary || '予定'}</h3>
+          <p>${formatEventTime(event)}</p>
+        </div>
+      `).join('');
+    }
+
+    function formatEventTime(event) {
+      if (event.start.date) {
+        return '終日';
+      }
+      const start = new Date(event.start.dateTime);
+      const end = new Date(event.end.dateTime);
+      return `${start.getHours()}:${String(start.getMinutes()).padStart(2, '0')} - ${end.getHours()}:${String(end.getMinutes()).padStart(2, '0')}`;
+    }
+
+    // Render tasks
+    function renderTasks() {
+      const container = document.getElementById('task-list');
+
+      if (tasks.length === 0) {
+        container.innerHTML = '<div class="empty">未完了のタスクはありません 🎉</div>';
+        return;
+      }
+
+      container.innerHTML = tasks.map((task, index) => `
+        <div class="task-item" data-index="${index}">
+          <div class="task-checkbox" onclick="toggleTask(${index})"></div>
+          <div class="task-content">
+            <div class="task-title">${task.title}</div>
+            ${task.due ? `<div class="task-due">期限: ${formatDueDate(task.due)}</div>` : ''}
+          </div>
+          ${task.starred ? '<div class="task-star">⭐</div>' : ''}
+        </div>
+      `).join('');
+    }
+
+    function formatDueDate(due) {
+      const date = new Date(due);
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
+
+    async function toggleTask(index) {
+      const task = tasks[index];
+      const checkbox = document.querySelectorAll('.task-checkbox')[index];
+
+      checkbox.classList.add('checked');
+
+      try {
+        await fetch(`${API_BASE}/api/tasks/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: userId,
+            taskId: task.id,
+            listId: task.listId
+          })
+        });
+
+        // Remove from list after animation
+        setTimeout(() => {
+          tasks.splice(index, 1);
+          renderTasks();
+        }, 300);
+      } catch (error) {
+        console.error('Failed to complete task:', error);
+        checkbox.classList.remove('checked');
+      }
+    }
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    // Calendar navigation
+    document.getElementById('prev-month').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      renderCalendar();
+    });
+
+    document.getElementById('next-month').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      renderCalendar();
+    });
+
+    // Initialize
+    initializeLiff();
+  </script>
+</body>
+</html>

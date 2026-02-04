@@ -1,0 +1,35 @@
+{
+  "size": {
+    "width": 2500,
+    "height": 843
+  },
+  "selected": true,
+  "name": "Simple Menu",
+  "chatBarText": "メニュー",
+  "areas": [
+    {
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 1250,
+        "height": 843
+      },
+      "action": {
+        "type": "uri",
+        "uri": "https://liff.line.me/2009033103-6cx2zHDu?tab=calendar"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1250,
+        "y": 0,
+        "width": 1250,
+        "height": 843
+      },
+      "action": {
+        "type": "uri",
+        "uri": "https://liff.line.me/2009033103-6cx2zHDu?tab=tasks"
+      }
+    }
+  ]
+}

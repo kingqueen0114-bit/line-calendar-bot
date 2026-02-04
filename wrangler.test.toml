@@ -1,0 +1,20 @@
+name = "line-calendar-bot-test"
+main = "src/index.js"
+compatibility_date = "2024-01-31"
+
+# テスト用KV Namespace
+kv_namespaces = [
+  { binding = "NOTIFICATIONS", id = "TEST_KV_ID" }  # 後で実際のIDに置き換え
+]
+
+# Cron Trigger（テスト中は無効化も可）
+[triggers]
+crons = ["*/15 * * * *"]
+
+# 環境変数（テスト用）
+# LINE_CHANNEL_ACCESS_TOKEN (テストチャネル用)
+# LINE_CHANNEL_SECRET (テストチャネル用)
+# GOOGLE_CLIENT_ID (テスト用または本番と同じでOK)
+# GOOGLE_CLIENT_SECRET (テスト用または本番と同じでOK)
+# OAUTH_REDIRECT_URI (テスト環境のURL)
+# GEMINI_API_KEY (本番と同じでOK)

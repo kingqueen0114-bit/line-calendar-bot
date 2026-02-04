@@ -1,9 +1,20 @@
 /**
  * LINE Messaging API操作
  */
+import crypto from 'crypto';
 
-// 署名検証
+// 署名検証（Node.js と Cloudflare Workers 両対応）
 export async function verifySignature(body, signature, channelSecret) {
+  // Node.js 環境の場合
+  if (typeof crypto.createHmac === 'function') {
+    const hash = crypto
+      .createHmac('SHA256', channelSecret)
+      .update(body)
+      .digest('base64');
+    return hash === signature;
+  }
+
+  // Cloudflare Workers 環境の場合
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
@@ -28,6 +39,11 @@ export async function verifySignature(body, signature, channelSecret) {
 
 // メッセージ送信
 export async function sendLineMessage(userId, message, accessToken) {
+  // messageがオブジェクトの場合（Flex Messageなど）はそのまま使用、文字列の場合はテキストメッセージとして扱う
+  const messages = typeof message === 'string'
+    ? [{ type: 'text', text: message }]
+    : [message];
+
   const response = await fetch('https://api.line.me/v2/bot/message/push', {
     method: 'POST',
     headers: {
@@ -36,7 +52,7 @@ export async function sendLineMessage(userId, message, accessToken) {
     },
     body: JSON.stringify({
       to: userId,
-      messages: [{ type: 'text', text: message }]
+      messages: messages
     })
   });
 
@@ -50,6 +66,11 @@ export async function sendLineMessage(userId, message, accessToken) {
 
 // 返信メッセージ送信
 export async function replyLineMessage(replyToken, message, accessToken) {
+  // messageがオブジェクトの場合（Flex Messageなど）はそのまま使用、文字列の場合はテキストメッセージとして扱う
+  const messages = typeof message === 'string'
+    ? [{ type: 'text', text: message }]
+    : [message];
+
   const response = await fetch('https://api.line.me/v2/bot/message/reply', {
     method: 'POST',
     headers: {
@@ -58,7 +79,7 @@ export async function replyLineMessage(replyToken, message, accessToken) {
     },
     body: JSON.stringify({
       replyToken: replyToken,
-      messages: [{ type: 'text', text: message }]
+      messages: messages
     })
   });
 

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>リッチメニュー画像ジェネレーター</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      text-align: center;
+      color: #06C755;
+    }
+    .info {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .canvas-container {
+      text-align: center;
+      margin: 20px 0;
+    }
+    canvas {
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      max-width: 100%;
+      height: auto;
+      background: white;
+    }
+    .controls {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .control-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #333;
+    }
+    input[type="color"],
+    input[type="range"],
+    input[type="number"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    input[type="range"] {
+      height: 30px;
+    }
+    button {
+      background: #06C755;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #05B04B;
+    }
+    .value-display {
+      display: inline-block;
+      margin-left: 10px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>📱 LINE リッチメニュー画像ジェネレーター</h1>
+
+  <div class="info">
+    <p><strong>サイズ:</strong> 2500 x 1686 pixels</p>
+    <p><strong>レイアウト:</strong> 3列 x 4行（最下段はGeminiで全幅）</p>
+    <p>ブラウザで画像を生成して、右クリック → 「画像を保存」でダウンロードしてください。</p>
+  </div>
+
+  <div class="controls">
+    <h3>🎨 カラー設定</h3>
+
+    <div class="control-group">
+      <label for="bgColor">背景色</label>
+      <input type="color" id="bgColor" value="#ffffff">
+    </div>
+
+    <div class="control-group">
+      <label for="textColor">テキスト色</label>
+      <input type="color" id="textColor" value="#333333">
+    </div>
+
+    <div class="control-group">
+      <label for="borderColor">ボーダー色</label>
+      <input type="color" id="borderColor" value="#e0e0e0">
+    </div>
+
+    <div class="control-group">
+      <label for="accentColor">アクセント色（外部リンク）</label>
+      <input type="color" id="accentColor" value="#06C755">
+    </div>
+
+    <h3>📏 フォント設定</h3>
+
+    <div class="control-group">
+      <label for="fontSize">フォントサイズ: <span class="value-display" id="fontSizeValue">44px</span></label>
+      <input type="range" id="fontSize" min="30" max="80" value="44">
+    </div>
+
+    <div class="control-group">
+      <label for="emojiSize">絵文字サイズ: <span class="value-display" id="emojiSizeValue">60px</span></label>
+      <input type="range" id="emojiSize" min="40" max="100" value="60">
+    </div>
+
+    <button onclick="generateImage()">🎨 画像を生成</button>
+  </div>
+
+  <div class="canvas-container">
+    <canvas id="richMenuCanvas" width="2500" height="1686"></canvas>
+  </div>
+
+  <div class="info">
+    <h3>💾 保存方法</h3>
+    <ol>
+      <li>上の画像を右クリック</li>
+      <li>「名前を付けて画像を保存」を選択</li>
+      <li>ファイル名を「rich-menu-image.png」として保存</li>
+    </ol>
+
+    <h3>📤 アップロード方法</h3>
+    <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">
+export TOKEN="YOUR_CHANNEL_ACCESS_TOKEN"
+
+MENU_ID=$(curl -s -X POST https://api.line.me/v2/bot/richmenu \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d @rich-menu.json | jq -r '.richMenuId')
+
+curl -X POST https://api-data.line.me/v2/bot/richmenu/$MENU_ID/content \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: image/png" \
+  --data-binary @rich-menu-image.png
+
+curl -X POST https://api.line.me/v2/bot/user/all/richmenu/$MENU_ID \
+  -H "Authorization: Bearer $TOKEN"
+
+echo "✅ Rich menu setup complete! ID: $MENU_ID"
+    </pre>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('richMenuCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // リッチメニュー項目定義（新しいレイアウト）
+    const menuItems = [
+      // Row 1
+      { x: 0, y: 0, width: 833, height: 421, emoji: '📅', text: '予定一覧', isExternal: false },
+      { x: 833, y: 0, width: 834, height: 421, emoji: '➕', text: '予定登録', isExternal: false },
+      { x: 1667, y: 0, width: 833, height: 421, emoji: '✏️', text: '予定の変更', isExternal: false },
+
+      // Row 2
+      { x: 0, y: 421, width: 833, height: 422, emoji: '🗑️', text: 'キャンセル', isExternal: false },
+      { x: 833, y: 421, width: 834, height: 422, emoji: '✅', text: 'タスク一覧', isExternal: false },
+      { x: 1667, y: 421, width: 833, height: 422, emoji: '📝', text: 'タスク登録', isExternal: false },
+
+      // Row 3
+      { x: 0, y: 843, width: 833, height: 422, emoji: '✔️', text: 'タスク完了', isExternal: false },
+      { x: 833, y: 843, width: 834, height: 422, emoji: '📆', text: 'Calendar', isExternal: true },
+      { x: 1667, y: 843, width: 833, height: 422, emoji: '📋', text: 'Tasks', isExternal: true },
+
+      // Row 4 (full width)
+      { x: 0, y: 1265, width: 2500, height: 421, emoji: '🤖', text: 'Gemini', isExternal: true }
+    ];
+
+    // 設定値の更新
+    document.getElementById('fontSize').addEventListener('input', (e) => {
+      document.getElementById('fontSizeValue').textContent = e.target.value + 'px';
+      generateImage();
+    });
+
+    document.getElementById('emojiSize').addEventListener('input', (e) => {
+      document.getElementById('emojiSizeValue').textContent = e.target.value + 'px';
+      generateImage();
+    });
+
+    // カラー変更時も自動再生成
+    ['bgColor', 'textColor', 'borderColor', 'accentColor'].forEach(id => {
+      document.getElementById(id).addEventListener('input', generateImage);
+    });
+
+    function generateImage() {
+      const bgColor = document.getElementById('bgColor').value;
+      const textColor = document.getElementById('textColor').value;
+      const borderColor = document.getElementById('borderColor').value;
+      const accentColor = document.getElementById('accentColor').value;
+      const fontSize = parseInt(document.getElementById('fontSize').value);
+      const emojiSize = parseInt(document.getElementById('emojiSize').value);
+
+      // 背景を塗りつぶし
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 各メニューアイテムを描画
+      menuItems.forEach(item => {
+        // ボックスの背景
+        const boxBgColor = item.isExternal ? accentColor + '15' : bgColor;
+        ctx.fillStyle = boxBgColor;
+        ctx.fillRect(item.x, item.y, item.width, item.height);
+
+        // ボーダー
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(item.x, item.y, item.width, item.height);
+
+        // 絵文字
+        ctx.font = `${emojiSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const emojiY = item.y + item.height / 2 - 30;
+        ctx.fillText(item.emoji, item.x + item.width / 2, emojiY);
+
+        // テキスト
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        const textColorFinal = item.isExternal ? accentColor : textColor;
+        ctx.fillStyle = textColorFinal;
+        const textY = item.y + item.height / 2 + 40;
+        ctx.fillText(item.text, item.x + item.width / 2, textY);
+      });
+
+      console.log('✅ Rich menu image generated');
+    }
+
+    // 初回生成
+    generateImage();
+  </script>
+</body>
+</html>

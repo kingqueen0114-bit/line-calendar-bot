@@ -1,0 +1,131 @@
+{
+  "size": {
+    "width": 2500,
+    "height": 1686
+  },
+  "selected": true,
+  "name": "Calendar & Tasks Menu",
+  "chatBarText": "メニュー",
+  "areas": [
+    {
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 833,
+        "height": 421
+      },
+      "action": {
+        "type": "message",
+        "text": "予定一覧"
+      }
+    },
+    {
+      "bounds": {
+        "x": 833,
+        "y": 0,
+        "width": 834,
+        "height": 421
+      },
+      "action": {
+        "type": "message",
+        "text": "予定登録"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1667,
+        "y": 0,
+        "width": 833,
+        "height": 421
+      },
+      "action": {
+        "type": "message",
+        "text": "予定の変更方法"
+      }
+    },
+    {
+      "bounds": {
+        "x": 0,
+        "y": 421,
+        "width": 833,
+        "height": 422
+      },
+      "action": {
+        "type": "message",
+        "text": "予定のキャンセル方法"
+      }
+    },
+    {
+      "bounds": {
+        "x": 833,
+        "y": 421,
+        "width": 834,
+        "height": 422
+      },
+      "action": {
+        "type": "message",
+        "text": "タスク一覧"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1667,
+        "y": 421,
+        "width": 833,
+        "height": 422
+      },
+      "action": {
+        "type": "message",
+        "text": "タスク登録"
+      }
+    },
+    {
+      "bounds": {
+        "x": 0,
+        "y": 843,
+        "width": 833,
+        "height": 422
+      },
+      "action": {
+        "type": "message",
+        "text": "タスク完了方法"
+      }
+    },
+    {
+      "bounds": {
+        "x": 833,
+        "y": 843,
+        "width": 834,
+        "height": 422
+      },
+      "action": {
+        "type": "uri",
+        "uri": "https://calendar.google.com"
+      }
+    },
+    {
+      "bounds": {
+        "x": 1667,
+        "y": 843,
+        "width": 833,
+        "height": 422
+      },
+      "action": {
+        "type": "uri",
+        "uri": "https://tasks.google.com"
+      }
+    },
+    {
+      "bounds": {
+        "x": 0,
+        "y": 1265,
+        "width": 2500,
+        "height": 421
+      },
+      "action": {
+        "type": "uri",
+        "uri": "https://gemini.google.com"
+      }
+    }
+  ]
+}
