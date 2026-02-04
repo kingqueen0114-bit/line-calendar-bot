@@ -173,6 +173,56 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
+    // LIFF API: Get auth URL for Google OAuth
+    if (request.method === 'GET' && url.pathname === '/api/auth-url') {
+      const userId = url.searchParams.get('userId');
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'userId required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      try {
+        const authUrl = getAuthorizationUrl(userId, env);
+        return new Response(JSON.stringify({ authUrl }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error('Auth URL generation error:', error);
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // LIFF API: Check auth status
+    if (request.method === 'GET' && url.pathname === '/api/auth-status') {
+      const userId = url.searchParams.get('userId');
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'userId required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      try {
+        const isAuth = await isUserAuthenticated(userId, env);
+        return new Response(JSON.stringify({ authenticated: isAuth }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (error) {
+        console.error('Auth status check error:', error);
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
     // LIFF API: Get events
     if (request.method === 'GET' && url.pathname === '/api/events') {
       const userId = url.searchParams.get('userId');

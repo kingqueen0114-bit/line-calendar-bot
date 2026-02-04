@@ -1206,6 +1206,45 @@ export function generateLiffHtml(liffId, apiBase) {
       transition: opacity 0.3s;
     }
     .toast.show { opacity: 1; }
+
+    .auth-banner {
+      background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+      color: white;
+      padding: 16px;
+      border-radius: 0 0 12px 12px;
+      margin: 0;
+      display: none;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 200;
+    }
+    .auth-banner.show { display: block; }
+    body.needs-auth .section { padding-top: 130px; }
+    .auth-banner h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .auth-banner p {
+      font-size: 13px;
+      margin-bottom: 12px;
+      opacity: 0.95;
+    }
+    .auth-banner-btn {
+      display: inline-block;
+      background: white;
+      color: #f57c00;
+      padding: 10px 24px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
   </style>
 </head>
 <body>
@@ -1213,6 +1252,13 @@ export function generateLiffHtml(liffId, apiBase) {
     <div class="header">
       <h1>Project Sync</h1>
       <span class="header-user" id="user-name"></span>
+    </div>
+
+    <!-- Auth Banner -->
+    <div class="auth-banner" id="auth-banner">
+      <h3>🔐 Google連携が必要です</h3>
+      <p>カレンダーやタスクを利用するには、<br>Googleアカウントとの連携が必要です。</p>
+      <a class="auth-banner-btn" id="auth-banner-btn" href="#" target="_blank">Googleアカウントを連携</a>
     </div>
 
     <div class="main">
@@ -1270,9 +1316,9 @@ export function generateLiffHtml(liffId, apiBase) {
             <span class="settings-item-label">ユーザー名</span>
             <span class="settings-item-value" id="settings-username">-</span>
           </div>
-          <div class="settings-item">
+          <div class="settings-item" id="google-auth-status">
             <span class="settings-item-label">Google連携</span>
-            <span class="settings-item-value">連携済み</span>
+            <span class="settings-item-value" id="google-auth-value">確認中...</span>
           </div>
         </div>
         <div class="settings-group">
@@ -1810,6 +1856,8 @@ export function generateLiffHtml(liffId, apiBase) {
     let userId = null;
     let editingEvent = null;
     let editingTask = null;
+    let isGoogleAuthenticated = true; // Will be updated on first API call
+    let googleAuthUrl = null;
 
     const WEEKDAYS_JA = ['日', '月', '火', '水', '木', '金', '土'];
     const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1846,6 +1894,9 @@ export function generateLiffHtml(liffId, apiBase) {
         userId = profile.userId;
         document.getElementById('user-name').textContent = profile.displayName;
         document.getElementById('settings-username').textContent = profile.displayName;
+
+        // まずGoogle認証状態を確認
+        await checkGoogleAuthStatus();
 
         await Promise.all([loadEvents(), loadTasks(), loadTaskLists(), loadMemos(), loadProjects(), loadSharedEvents(), loadSharedTaskLists(), loadSharedTasks()]);
         renderCalendar();
@@ -2020,6 +2071,7 @@ export function generateLiffHtml(liffId, apiBase) {
     async function loadEvents() {
       try {
         const response = await fetch(API_BASE + '/api/events?userId=' + userId + cacheBust(), { cache: 'no-store' });
+        if (response.status === 401) { handle401Error(); return; }
         if (response.ok) events = await response.json();
       } catch (error) {
         console.error('Failed to load events:', error);
@@ -2029,6 +2081,7 @@ export function generateLiffHtml(liffId, apiBase) {
     async function loadTasks() {
       try {
         const response = await fetch(API_BASE + '/api/tasks?userId=' + userId + cacheBust(), { cache: 'no-store' });
+        if (response.status === 401) { handle401Error(); return; }
         if (response.ok) tasks = await response.json();
       } catch (error) {
         console.error('Failed to load tasks:', error);
@@ -2038,6 +2091,7 @@ export function generateLiffHtml(liffId, apiBase) {
     async function loadTaskLists() {
       try {
         const response = await fetch(API_BASE + '/api/tasklists?userId=' + userId + cacheBust(), { cache: 'no-store' });
+        if (response.status === 401) { handle401Error(); return; }
         if (response.ok) taskLists = await response.json();
       } catch (error) {
         console.error('Failed to load task lists:', error);
@@ -2047,6 +2101,7 @@ export function generateLiffHtml(liffId, apiBase) {
     async function loadMemos() {
       try {
         const response = await fetch(API_BASE + '/api/memos?userId=' + userId + cacheBust(), { cache: 'no-store' });
+        if (response.status === 401) { handle401Error(); return; }
         if (response.ok) memos = await response.json();
       } catch (error) {
         console.error('Failed to load memos:', error);
@@ -2056,6 +2111,7 @@ export function generateLiffHtml(liffId, apiBase) {
     async function loadProjects() {
       try {
         const response = await fetch(API_BASE + '/api/projects?userId=' + userId + cacheBust(), { cache: 'no-store' });
+        if (response.status === 401) { handle401Error(); return; }
         if (response.ok) projects = await response.json();
       } catch (error) {
         console.error('Failed to load projects:', error);
@@ -2065,6 +2121,7 @@ export function generateLiffHtml(liffId, apiBase) {
     async function loadSharedEvents() {
       try {
         const response = await fetch(API_BASE + '/api/shared-events?userId=' + userId + cacheBust(), { cache: 'no-store' });
+        if (response.status === 401) { handle401Error(); return; }
         if (response.ok) sharedEvents = await response.json();
       } catch (error) {
         console.error('Failed to load shared events:', error);
@@ -2074,6 +2131,7 @@ export function generateLiffHtml(liffId, apiBase) {
     async function loadSharedTaskLists() {
       try {
         const response = await fetch(API_BASE + '/api/shared-tasklists?userId=' + userId + cacheBust(), { cache: 'no-store' });
+        if (response.status === 401) { handle401Error(); return; }
         if (response.ok) sharedTaskLists = await response.json();
       } catch (error) {
         console.error('Failed to load shared task lists:', error);
@@ -2083,6 +2141,7 @@ export function generateLiffHtml(liffId, apiBase) {
     async function loadSharedTasks() {
       try {
         const response = await fetch(API_BASE + '/api/shared-tasks?userId=' + userId + cacheBust(), { cache: 'no-store' });
+        if (response.status === 401) { handle401Error(); return; }
         if (response.ok) sharedTasks = await response.json();
       } catch (error) {
         console.error('Failed to load shared tasks:', error);
@@ -3809,6 +3868,63 @@ export function generateLiffHtml(liffId, apiBase) {
         showToast('エラーが発生しました');
       } finally {
         btn.disabled = false;
+      }
+    }
+
+    // ========================================
+    // Google認証ステータス
+    // ========================================
+    async function checkGoogleAuthStatus() {
+      try {
+        const response = await fetch(API_BASE + '/api/auth-status?userId=' + userId);
+        const data = await response.json();
+        isGoogleAuthenticated = data.authenticated;
+
+        if (!isGoogleAuthenticated) {
+          await getGoogleAuthUrl();
+        }
+
+        updateAuthDisplay();
+      } catch (error) {
+        console.error('Failed to check auth status:', error);
+      }
+    }
+
+    async function getGoogleAuthUrl() {
+      try {
+        const response = await fetch(API_BASE + '/api/auth-url?userId=' + userId);
+        const data = await response.json();
+        googleAuthUrl = data.authUrl;
+      } catch (error) {
+        console.error('Failed to get auth URL:', error);
+      }
+    }
+
+    function updateAuthDisplay() {
+      const authBanner = document.getElementById('auth-banner');
+      const authBannerBtn = document.getElementById('auth-banner-btn');
+      const googleAuthValue = document.getElementById('google-auth-value');
+
+      if (isGoogleAuthenticated) {
+        authBanner.classList.remove('show');
+        document.body.classList.remove('needs-auth');
+        googleAuthValue.innerHTML = '<span style="color:var(--primary);">✓ 連携済み</span>';
+      } else {
+        authBanner.classList.add('show');
+        document.body.classList.add('needs-auth');
+        if (googleAuthUrl) {
+          authBannerBtn.href = googleAuthUrl;
+          googleAuthValue.innerHTML = '<a href="' + googleAuthUrl + '" target="_blank" style="color:#ff9800;text-decoration:underline;">連携する</a>';
+        } else {
+          googleAuthValue.textContent = '未連携';
+        }
+      }
+    }
+
+    function handle401Error() {
+      if (isGoogleAuthenticated) {
+        isGoogleAuthenticated = false;
+        getGoogleAuthUrl().then(() => updateAuthDisplay());
       }
     }
 
