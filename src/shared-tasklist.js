@@ -221,7 +221,7 @@ export async function getAllSharedTasksForUser(userId, env) {
 /**
  * 共有タスクを完了
  */
-export async function completeSharedTask(taskId, listId, userId, env) {
+export async function completeSharedTask(taskId, listId, userId, env, userName = null) {
   const list = await getSharedTaskList(listId, env);
   if (!list || !list.members.includes(userId)) {
     throw new Error('このタスクリストにアクセスできません');
@@ -234,6 +234,7 @@ export async function completeSharedTask(taskId, listId, userId, env) {
 
   task.completed = true;
   task.completedBy = userId;
+  task.completedByName = userName;
   task.completedAt = new Date().toISOString();
   task.updatedAt = new Date().toISOString();
 
@@ -256,6 +257,57 @@ export async function deleteSharedTask(taskId, listId, userId, env) {
   const taskIds = await env.NOTIFICATIONS.get(`shared_tasks_list:${listId}`, { type: 'json' }) || [];
   const newTaskIds = taskIds.filter(id => id !== taskId);
   await env.NOTIFICATIONS.put(`shared_tasks_list:${listId}`, JSON.stringify(newTaskIds));
+}
+
+/**
+ * 共有タスクの完了を取り消す
+ */
+export async function uncompleteSharedTask(taskId, listId, userId, env) {
+  const list = await getSharedTaskList(listId, env);
+  if (!list || !list.members.includes(userId)) {
+    throw new Error('このタスクリストにアクセスできません');
+  }
+
+  const task = await env.NOTIFICATIONS.get(`shared_task:${listId}:${taskId}`, { type: 'json' });
+  if (!task) {
+    throw new Error('タスクが見つかりません');
+  }
+
+  task.completed = false;
+  task.completedBy = null;
+  task.completedAt = null;
+  task.updatedAt = new Date().toISOString();
+
+  await env.NOTIFICATIONS.put(`shared_task:${listId}:${taskId}`, JSON.stringify(task));
+
+  return task;
+}
+
+/**
+ * ユーザーの全完了済み共有タスクを取得
+ */
+export async function getAllCompletedSharedTasksForUser(userId, env) {
+  const lists = await getUserSharedTaskLists(userId, env);
+  const allTasks = [];
+
+  for (const list of lists) {
+    const tasks = await getSharedTasks(list.id, env, true);
+    tasks.filter(task => task.completed).forEach(task => {
+      allTasks.push({
+        ...task,
+        listTitle: list.name,
+        listColor: list.color,
+        isShared: true
+      });
+    });
+  }
+
+  // 完了日時降順（新しい順）
+  allTasks.sort((a, b) => {
+    return new Date(b.completedAt || 0) - new Date(a.completedAt || 0);
+  });
+
+  return allTasks;
 }
 
 // ヘルパー関数

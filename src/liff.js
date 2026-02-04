@@ -728,6 +728,81 @@ export function generateLiffHtml(liffId, apiBase) {
     }
     .task-star { color: #ffc107; font-size: 18px; flex-shrink: 0; }
 
+    /* 完了済みタスク */
+    .completed-tasks-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 16px;
+      margin-top: 12px;
+      background: var(--card);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+    .completed-tasks-toggle:active { opacity: 0.8; }
+    #completed-toggle-icon {
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+    #completed-toggle-icon.open { transform: rotate(90deg); }
+    .completed-count {
+      margin-left: auto;
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
+    .completed-task-list {
+      background: var(--card);
+      border-radius: 0 0 10px 10px;
+      margin-top: -10px;
+      padding-top: 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .completed-task-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+      cursor: pointer;
+      opacity: 0.7;
+    }
+    .completed-task-item:last-child { border-bottom: none; }
+    .completed-task-item:active { background: var(--bg); }
+    .completed-task-item .task-title {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+    .completed-task-item .task-checkbox {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+    .completed-task-item .task-checkbox::after {
+      content: '\\2713';
+      color: white;
+      font-size: 14px;
+    }
+    .completed-by {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .uncomplete-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .uncomplete-btn:active { background: var(--border); }
+
     /* タスク タブ切替 */
     .task-tabs {
       display: flex;
@@ -1289,6 +1364,12 @@ export function generateLiffHtml(liffId, apiBase) {
         <div class="task-list" id="task-list">
           <div class="loading"><div class="loading-spinner"></div>読み込み中...</div>
         </div>
+        <div class="completed-tasks-toggle" onclick="toggleShowCompletedTasks()">
+          <span id="completed-toggle-icon">▶</span>
+          <span>完了済みタスク</span>
+          <span id="completed-count" class="completed-count"></span>
+        </div>
+        <div class="completed-task-list" id="completed-task-list" style="display:none;"></div>
       </div>
 
       <div id="memo" class="section">
@@ -1845,6 +1926,9 @@ export function generateLiffHtml(liffId, apiBase) {
     let sharedEvents = [];
     let tasks = [];
     let sharedTasks = [];
+    let completedTasks = [];
+    let completedSharedTasks = [];
+    let showCompletedTasks = false;
     let sharedTaskLists = [];
     let currentTaskList = null;
     let taskLists = [];
@@ -1861,6 +1945,7 @@ export function generateLiffHtml(liffId, apiBase) {
     let currentProject = null;
     let selectedProjectColor = '#06c755';
     let userId = null;
+    let userName = null;
     let editingEvent = null;
     let editingTask = null;
     let isGoogleAuthenticated = true; // Will be updated on first API call
@@ -1899,6 +1984,7 @@ export function generateLiffHtml(liffId, apiBase) {
         }
         const profile = await liff.getProfile();
         userId = profile.userId;
+        userName = profile.displayName;
         document.getElementById('user-name').textContent = profile.displayName;
         document.getElementById('settings-username').textContent = profile.displayName;
 
@@ -2155,6 +2241,26 @@ export function generateLiffHtml(liffId, apiBase) {
       }
     }
 
+    async function loadCompletedTasks() {
+      try {
+        const response = await fetch(API_BASE + '/api/tasks/completed?userId=' + userId + cacheBust(), { cache: 'no-store' });
+        if (response.status === 401) { handle401Error(); return; }
+        if (response.ok) completedTasks = await response.json();
+      } catch (error) {
+        console.error('Failed to load completed tasks:', error);
+      }
+    }
+
+    async function loadCompletedSharedTasks() {
+      try {
+        const response = await fetch(API_BASE + '/api/shared-tasks/completed?userId=' + userId + cacheBust(), { cache: 'no-store' });
+        if (response.status === 401) { handle401Error(); return; }
+        if (response.ok) completedSharedTasks = await response.json();
+      } catch (error) {
+        console.error('Failed to load completed shared tasks:', error);
+      }
+    }
+
     // 全てのイベント（個人 + 共有）を取得
     function getAllEvents() {
       return [...events, ...sharedEvents];
@@ -2163,6 +2269,11 @@ export function generateLiffHtml(liffId, apiBase) {
     // 全てのタスク（個人 + 共有）を取得
     function getAllTasks() {
       return [...tasks, ...sharedTasks];
+    }
+
+    // 全ての完了済みタスク（個人 + 共有）を取得
+    function getAllCompletedTasks() {
+      return [...completedTasks, ...completedSharedTasks];
     }
 
     // ========================================
@@ -2700,7 +2811,7 @@ export function generateLiffHtml(liffId, apiBase) {
           await fetch(API_BASE + '/api/shared-tasks/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, taskId: task.id, listId: task.listId })
+            body: JSON.stringify({ userId, taskId: task.id, listId: task.listId, userName })
           });
           showToast('タスクを完了しました');
           await loadSharedTasks();
@@ -2717,6 +2828,96 @@ export function generateLiffHtml(liffId, apiBase) {
         }
       } catch (error) {
         console.error('Failed to complete task:', error);
+      }
+    }
+
+    async function toggleShowCompletedTasks() {
+      showCompletedTasks = !showCompletedTasks;
+      const icon = document.getElementById('completed-toggle-icon');
+      const container = document.getElementById('completed-task-list');
+
+      if (showCompletedTasks) {
+        icon.classList.add('open');
+        container.style.display = 'block';
+        container.innerHTML = '<div class="loading"><div class="loading-spinner"></div>読み込み中...</div>';
+        await Promise.all([loadCompletedTasks(), loadCompletedSharedTasks()]);
+        renderCompletedTasks();
+      } else {
+        icon.classList.remove('open');
+        container.style.display = 'none';
+      }
+    }
+
+    function renderCompletedTasks() {
+      const container = document.getElementById('completed-task-list');
+      const allCompleted = getAllCompletedTasks();
+      const countEl = document.getElementById('completed-count');
+      countEl.textContent = allCompleted.length + '件';
+
+      if (allCompleted.length === 0) {
+        container.innerHTML = '<div class="empty" style="padding:20px;">完了済みタスクはありません</div>';
+        return;
+      }
+
+      let html = '';
+      allCompleted.forEach((task, i) => {
+        const isShared = task.isShared;
+        const indexStr = isShared ? 'cshared_' + i : 'c_' + i;
+        html += '<div class="completed-task-item">';
+        html += '<div class="task-checkbox"></div>';
+        html += '<div class="task-content">';
+        html += '<div class="task-title">' + escapeHtml(task.title) + '</div>';
+        if (task.completedAt || task.completed) {
+          const completedDate = task.completedAt || task.completed;
+          html += '<div class="task-due">完了: ' + formatDateTime(completedDate) + '</div>';
+        }
+        if (isShared && task.completedBy) {
+          html += '<div class="completed-by">完了者: ' + (task.completedByName || task.completedBy.substring(0, 8) + '...') + '</div>';
+        }
+        html += '</div>';
+        html += '<button class="uncomplete-btn" onclick="event.stopPropagation(); uncompleteTask(\\'' + indexStr + '\\')">戻す</button>';
+        html += '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    function formatDateTime(dateStr) {
+      const date = new Date(dateStr);
+      return (date.getMonth() + 1) + '/' + date.getDate() + ' ' + date.getHours() + ':' + String(date.getMinutes()).padStart(2, '0');
+    }
+
+    async function uncompleteTask(indexStr) {
+      const isShared = indexStr.startsWith('cshared_');
+      const index = parseInt(indexStr.replace('cshared_', '').replace('c_', ''));
+      const task = isShared ? completedSharedTasks[index] : completedTasks[index];
+
+      if (!task) return;
+
+      try {
+        if (isShared) {
+          await fetch(API_BASE + '/api/shared-tasks/uncomplete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, taskId: task.id, listId: task.listId })
+          });
+          showToast('タスクを未完了に戻しました');
+          await loadSharedTasks();
+          await loadCompletedSharedTasks();
+        } else {
+          await fetch(API_BASE + '/api/tasks/uncomplete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, taskId: task.id, listId: task.listId })
+          });
+          showToast('タスクを未完了に戻しました');
+          await loadTasks();
+          await loadCompletedTasks();
+        }
+        renderTasks();
+        renderCompletedTasks();
+      } catch (error) {
+        console.error('Failed to uncomplete task:', error);
+        showToast('エラーが発生しました');
       }
     }
 

@@ -204,6 +204,58 @@ app.post('/api/tasks/complete', async (req, res) => {
   }
 });
 
+// タスク完了取消し
+app.post('/api/tasks/uncomplete', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, taskId, listId } = req.body;
+
+  if (!userId || !taskId || !listId) {
+    return res.status(400).json({ error: 'userId, taskId, listId required' });
+  }
+
+  try {
+    const { isUserAuthenticated } = await import('./oauth.js');
+    const { uncompleteTask } = await import('./tasks.js');
+    const { env } = await import('./env-adapter.js');
+
+    if (!await isUserAuthenticated(userId, env)) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    await uncompleteTask(taskId, listId, userId, env);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('LIFF API uncomplete task error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 完了済みタスク取得
+app.get('/api/tasks/completed', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { isUserAuthenticated } = await import('./oauth.js');
+    const { getAllCompletedTasks } = await import('./tasks.js');
+    const { env } = await import('./env-adapter.js');
+
+    if (!await isUserAuthenticated(userId, env)) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const tasks = await getAllCompletedTasks(userId, env);
+    res.json(tasks);
+  } catch (err) {
+    console.error('LIFF API completed tasks error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // タスク更新
 app.post('/api/tasks/update', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -961,7 +1013,7 @@ app.post('/api/shared-tasks', async (req, res) => {
 // 共有タスク完了
 app.post('/api/shared-tasks/complete', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, taskId, listId } = req.body;
+  const { userId, taskId, listId, userName } = req.body;
 
   if (!userId || !taskId || !listId) {
     return res.status(400).json({ error: 'userId, taskId, listId required' });
@@ -976,7 +1028,7 @@ app.post('/api/shared-tasks/complete', async (req, res) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    await completeSharedTask(taskId, listId, userId, env);
+    await completeSharedTask(taskId, listId, userId, env, userName);
     res.json({ success: true });
   } catch (err) {
     console.error('Complete shared task error:', err);
@@ -1006,6 +1058,58 @@ app.delete('/api/shared-tasks', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Delete shared task error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 共有タスク完了取消し
+app.post('/api/shared-tasks/uncomplete', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, taskId, listId } = req.body;
+
+  if (!userId || !taskId || !listId) {
+    return res.status(400).json({ error: 'userId, taskId, listId required' });
+  }
+
+  try {
+    const { isUserAuthenticated } = await import('./oauth.js');
+    const { uncompleteSharedTask } = await import('./shared-tasklist.js');
+    const { env } = await import('./env-adapter.js');
+
+    if (!await isUserAuthenticated(userId, env)) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    await uncompleteSharedTask(taskId, listId, userId, env);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Uncomplete shared task error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 完了済み共有タスク取得
+app.get('/api/shared-tasks/completed', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { isUserAuthenticated } = await import('./oauth.js');
+    const { getAllCompletedSharedTasksForUser } = await import('./shared-tasklist.js');
+    const { env } = await import('./env-adapter.js');
+
+    if (!await isUserAuthenticated(userId, env)) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const tasks = await getAllCompletedSharedTasksForUser(userId, env);
+    res.json(tasks);
+  } catch (err) {
+    console.error('Get completed shared tasks error:', err);
     res.status(500).json({ error: err.message });
   }
 });

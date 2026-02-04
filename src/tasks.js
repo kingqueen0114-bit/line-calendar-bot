@@ -249,3 +249,65 @@ export async function deleteTask(taskId, listId, userId, env) {
 
   return { success: true };
 }
+
+// 完了済みタスク一覧を取得
+export async function getAllCompletedTasks(userId, env) {
+  const accessToken = await getUserAccessToken(userId, env);
+
+  const taskLists = await getTaskLists(userId, env);
+  const allTasks = [];
+
+  for (const list of taskLists) {
+    const response = await fetch(
+      `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks?showCompleted=true&showHidden=true`,
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.items) {
+        const completedTasks = data.items
+          .filter(task => task.status === 'completed')
+          .map(task => ({
+            ...task,
+            listTitle: list.title,
+            listId: list.id
+          }));
+        allTasks.push(...completedTasks);
+      }
+    }
+  }
+
+  // 完了日時降順（新しい順）
+  allTasks.sort((a, b) => {
+    return new Date(b.completed || 0) - new Date(a.completed || 0);
+  });
+
+  return allTasks;
+}
+
+// タスクの完了を取り消す（未完了に戻す）
+export async function uncompleteTask(taskId, listId, userId, env) {
+  const accessToken = await getUserAccessToken(userId, env);
+
+  const response = await fetch(
+    `https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks/${taskId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: 'needsAction', completed: null })
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error('タスク完了取消失敗: ' + error);
+  }
+
+  return await response.json();
+}
