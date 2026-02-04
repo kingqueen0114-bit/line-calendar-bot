@@ -10,7 +10,12 @@
     "deploy:cloudflare": "wrangler deploy",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["line", "calendar", "tasks", "bot"],
+  "keywords": [
+    "line",
+    "calendar",
+    "tasks",
+    "bot"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -23,5 +28,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.36.1"
   }
 }

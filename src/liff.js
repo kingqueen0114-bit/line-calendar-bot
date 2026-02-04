@@ -2069,9 +2069,24 @@ export function generateLiffHtml(liffId, apiBase) {
         // テーマカラーと表示設定を適用
         applyThemeColor(themeColor);
         initDisplaySettings();
+
+        // URLパラメータからタブを切り替え
+        handleTabFromUrl();
       } catch (error) {
         console.error('LIFF initialization failed:', error);
         document.getElementById('user-name').textContent = 'エラー';
+      }
+    }
+
+    function handleTabFromUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab && ['calendar', 'tasks', 'memo', 'settings'].includes(tab)) {
+        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+        document.getElementById(tab).classList.add('active');
+        currentTab = tab;
       }
     }
 
@@ -2830,7 +2845,7 @@ export function generateLiffHtml(liffId, apiBase) {
         allTasks.forEach((task) => {
           const taskIndex = 'shared_' + sharedTasks.indexOf(task);
           html += '<div class="task-item" onclick="openTaskDetail(\\'' + taskIndex + '\\')">';
-          html += '<div class="task-checkbox" onclick="event.stopPropagation(); toggleTask(\\'' + taskIndex + '\\')"></div>';
+          html += '<div class="task-checkbox" onclick="event.stopPropagation(); toggleTask(\\'' + taskIndex + '\\', this)"></div>';
           html += '<div class="task-content"><div class="task-title">' + escapeHtml(task.title) + '</div>';
           if (task.due) html += '<div class="task-due">期限: ' + formatDueDate(task.due) + '</div>';
           html += '</div>';
@@ -2862,7 +2877,7 @@ export function generateLiffHtml(liffId, apiBase) {
           const isShared = task.isShared;
           const taskIndex = isShared ? 'shared_' + sharedTasks.indexOf(task) : tasks.indexOf(task);
           html += '<div class="task-item" onclick="openTaskDetail(\\'' + taskIndex + '\\')">';
-          html += '<div class="task-checkbox" onclick="event.stopPropagation(); toggleTask(\\'' + taskIndex + '\\')"></div>';
+          html += '<div class="task-checkbox" onclick="event.stopPropagation(); toggleTask(\\'' + taskIndex + '\\', this)"></div>';
           html += '<div class="task-content"><div class="task-title">' + escapeHtml(task.title) + '</div>';
           if (task.due) html += '<div class="task-due">期限: ' + formatDueDate(task.due) + '</div>';
           html += '</div>';
@@ -2873,12 +2888,20 @@ export function generateLiffHtml(liffId, apiBase) {
       container.innerHTML = html;
     }
 
-    async function toggleTask(indexStr) {
+    async function toggleTask(indexStr, checkboxEl) {
       const isShared = indexStr.toString().startsWith('shared_');
       const index = isShared ? parseInt(indexStr.replace('shared_', '')) : parseInt(indexStr);
       const task = isShared ? sharedTasks[index] : tasks[index];
 
       if (!task) return;
+
+      // チェックマークを表示
+      if (checkboxEl) {
+        checkboxEl.classList.add('checked');
+      }
+
+      // 少し待ってからAPIを呼び出し（アニメーション効果）
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       try {
         if (isShared) {
@@ -2902,6 +2925,10 @@ export function generateLiffHtml(liffId, apiBase) {
         }
       } catch (error) {
         console.error('Failed to complete task:', error);
+        // エラー時はチェックを外す
+        if (checkboxEl) {
+          checkboxEl.classList.remove('checked');
+        }
       }
     }
 
