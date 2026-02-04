@@ -84,6 +84,46 @@ app.get('/liff', async (req, res) => {
   res.type('html').send(html);
 });
 
+// LIFF API: 認証状態確認
+app.get('/api/auth-status', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { isUserAuthenticated } = await import('./oauth.js');
+    const { env } = await import('./env-adapter.js');
+    const isAuth = await isUserAuthenticated(userId, env);
+    res.json({ authenticated: isAuth });
+  } catch (error) {
+    console.error('Auth status check error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// LIFF API: 認証URL取得
+app.get('/api/auth-url', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { getAuthorizationUrl } = await import('./oauth.js');
+    const { env } = await import('./env-adapter.js');
+    const authUrl = getAuthorizationUrl(userId, env);
+    res.json({ authUrl });
+  } catch (error) {
+    console.error('Auth URL generation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // LIFF API エンドポイント
 app.get('/api/events', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
