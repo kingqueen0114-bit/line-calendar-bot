@@ -76,7 +76,7 @@ async function handleFollowEvent(event, env) {
     return;
   }
 
-  const authUrl = getAuthorizationUrl(userId, env);
+  const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
 
   const welcomeMessage =
     '🎉 ようこそ！Calendar & Tasks Bot\n\n' +
@@ -88,15 +88,10 @@ async function handleFollowEvent(event, env) {
     '🔒 完全なプライバシー保護\n\n' +
     '【はじめに】\n' +
     'まず、Googleアカウントとの連携が必要です。\n\n' +
-    '1. 下記のURLをコピー\n' +
-    '2. SafariまたはChromeで開く\n' +
-    '3. Googleアカウントでログイン\n' +
-    '4. 権限を許可\n' +
-    '5. LINEに戻ってメッセージを送信\n\n' +
-    '【認証URL】\n' +
-    authUrl + '\n\n' +
-    '※ データは完全に隔離され、他のユーザーと共有されません\n' +
-    '※ URLをタップしても動作しない場合は、長押ししてコピーし、ブラウザに貼り付けてください';
+    '下のボタンをタップして、アプリ内で認証してください👇\n\n' +
+    liffUrl + '\n\n' +
+    '※ セキュリティのため、アプリ内からのみ認証できます\n' +
+    '※ このURLを他の人と共有しても問題ありません';
 
   await replyLineMessage(
     replyToken,
@@ -119,10 +114,10 @@ async function handleMessage(event, env, ctx) {
   // リセットコマンド（認証前でも実行可能）
   if (userMessage === 'リセット' || userMessage === 'reset' || userMessage === 'RESET') {
     await revokeUserTokens(userId, env);
-    const authUrl = getAuthorizationUrl(userId, env);
+    const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
     await replyLineMessage(
       replyToken,
-      '🔄 認証情報をリセットしました。\n\n新しくGoogleアカウントと連携してください：\n\n' + authUrl + '\n\n⚠️ 必ずご自身のGoogleアカウントでログインしてください。他の人から共有されたURLは使用しないでください。',
+      '🔄 認証情報をリセットしました。\n\n下のリンクをタップして、アプリ内で再認証してください👇\n\n' + liffUrl + '\n\n⚠️ 必ずご自身のGoogleアカウントでログインしてください。',
       env.LINE_CHANNEL_ACCESS_TOKEN
     );
     return;
@@ -132,10 +127,10 @@ async function handleMessage(event, env, ctx) {
   const isAuthenticated = await isUserAuthenticated(userId, env);
 
   if (!isAuthenticated) {
-    const authUrl = getAuthorizationUrl(userId, env);
+    const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
     await replyLineMessage(
       replyToken,
-      '🔐 Googleアカウントとの連携が必要です。\n\n以下のURLをブラウザで開いて認証してください：\n\n' + authUrl,
+      '🔐 Googleアカウントとの連携が必要です。\n\n下のリンクをタップして、アプリ内で認証してください👇\n\n' + liffUrl,
       env.LINE_CHANNEL_ACCESS_TOKEN
     );
     return;

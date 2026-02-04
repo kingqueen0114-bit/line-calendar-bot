@@ -64,8 +64,8 @@ async function handleFollowEvent(event, env) {
     return;
   }
 
-  // OAuth URL生成
-  const authUrl = getAuthorizationUrl(userId, env);
+  // LIFF URL生成（セキュリティのため、OAuth URLは直接送信しない）
+  const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
 
   // ウェルカムメッセージを送信（テキスト形式）
   const welcomeMessage =
@@ -78,15 +78,10 @@ async function handleFollowEvent(event, env) {
     '🔒 完全なプライバシー保護\n\n' +
     '【はじめに】\n' +
     'まず、Googleアカウントとの連携が必要です。\n\n' +
-    '1. 下記のURLをコピー\n' +
-    '2. SafariまたはChromeで開く\n' +
-    '3. Googleアカウントでログイン\n' +
-    '4. 権限を許可\n' +
-    '5. LINEに戻ってメッセージを送信\n\n' +
-    '【認証URL】\n' +
-    authUrl + '\n\n' +
-    '※ データは完全に隔離され、他のユーザーと共有されません\n' +
-    '※ URLをタップしても動作しない場合は、長押ししてコピーし、ブラウザに貼り付けてください';
+    '下のボタンをタップして、アプリ内で認証してください👇\n\n' +
+    liffUrl + '\n\n' +
+    '※ セキュリティのため、アプリ内からのみ認証できます\n' +
+    '※ このURLを他の人と共有しても問題ありません';
 
   await replyLineMessage(
     replyToken,
@@ -501,21 +496,15 @@ async function handleMessage(event, env, ctx) {
 
   if (!isAuthenticated) {
     console.log('User not authenticated:', userId);
-    const authUrl = getAuthorizationUrl(userId, env);
+    const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
 
-    // 認証が必要なメッセージ（テキスト形式 - 外部ブラウザで開けるように）
+    // 認証が必要なメッセージ（LIFF経由のみに変更）
     const authMessage =
       '🔐 Google認証が必要です\n\n' +
       'この機能を使用するには、Googleアカウントとの連携が必要です。\n\n' +
-      '【認証手順】\n' +
-      '1. 下記のURLをコピー\n' +
-      '2. SafariまたはChromeで開く\n' +
-      '3. Googleアカウントでログイン\n' +
-      '4. 権限を許可\n' +
-      '5. LINEに戻ってメッセージを送信\n\n' +
-      '【認証URL】\n' +
-      authUrl + '\n\n' +
-      '※ URLをタップしても動作しない場合は、長押ししてコピーし、ブラウザに貼り付けてください';
+      '下のリンクをタップして、アプリ内で認証してください👇\n\n' +
+      liffUrl + '\n\n' +
+      '※ セキュリティのため、アプリ内からのみ認証できます';
 
     await replyLineMessage(
       replyToken,
