@@ -271,6 +271,9 @@ function generateRandomState() {
  * @returns {boolean} True if user has valid tokens
  */
 export async function isUserAuthenticated(userId, env) {
-  const tokens = await env.NOTIFICATIONS.get(`user_tokens:${userId}`, { type: 'json' });
+  const key = `user_tokens:${userId}`;
+  console.log('isUserAuthenticated: checking key:', key);
+  const tokens = await env.NOTIFICATIONS.get(key, { type: 'json' });
+  console.log('isUserAuthenticated: tokens found:', tokens !== null, 'has refreshToken:', tokens?.refreshToken !== undefined);
   return tokens !== null && tokens.refreshToken !== undefined;
 }

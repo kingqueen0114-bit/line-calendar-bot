@@ -23,11 +23,17 @@ function getDb() {
  */
 export async function get(key, options = {}) {
   try {
-    const doc = await getDb().collection('kv').doc(key).get();
+    console.log('Storage.get: fetching key:', key);
+    const firestore = getDb();
+    console.log('Storage.get: got firestore instance');
+    const doc = await firestore.collection('kv').doc(key).get();
+    console.log('Storage.get: query completed for key:', key);
 
     if (!doc.exists) {
+      console.log('Storage.get: document does not exist for key:', key);
       return null;
     }
+    console.log('Storage.get: document exists for key:', key);
 
     const data = doc.data();
 

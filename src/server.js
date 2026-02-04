@@ -1221,6 +1221,8 @@ app.options('/api/*', (req, res) => {
 
 // LINE Webhook
 app.post('/', async (req, res) => {
+  console.log('=== WEBHOOK RECEIVED ===');
+  console.log('Webhook body:', JSON.stringify(req.body));
   try {
     // 署名検証
     const signature = req.headers['x-line-signature'];
@@ -1236,8 +1238,10 @@ app.post('/', async (req, res) => {
       return res.status(401).send('Invalid signature');
     }
 
+    console.log('Signature verified, calling handleWebhook');
     // Webhook処理
     await handleWebhook(req.body);
+    console.log('handleWebhook completed');
     res.sendStatus(200);
   } catch (err) {
     console.error('Webhook error:', err);

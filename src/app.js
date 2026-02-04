@@ -6,6 +6,7 @@ import { env, createContext } from './env-adapter.js';
 import { verifySignature, replyLineMessage, sendLineMessage } from './line.js';
 import { createEvent, getUpcomingEvents, searchEvents, searchEventsInRange, deleteEvent, updateEvent } from './calendar.js';
 import { createTask, getUpcomingTasks, getAllIncompleteTasks, getTaskLists, completeTask } from './tasks.js';
+import { createMemo } from './memo.js';
 import { parseEventText } from './gemini.js';
 import { handleOAuthCallback, getAuthorizationUrl, isUserAuthenticated, getUserAccessToken, revokeUserTokens } from './oauth.js';
 
@@ -124,7 +125,9 @@ async function handleMessage(event, env, ctx) {
   }
 
   // 認証チェック
+  console.log('Checking authentication for userId:', userId);
   const isAuthenticated = await isUserAuthenticated(userId, env);
+  console.log('Authentication result:', isAuthenticated);
 
   if (!isAuthenticated) {
     const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
@@ -243,9 +246,20 @@ async function handleListAction(eventData, userId, env) {
 
 // 作成アクション
 async function handleCreateAction(eventData, userId, env) {
-  const isTask = eventData.type === 'task';
+  const type = eventData.type;
 
-  if (isTask) {
+  if (type === 'memo') {
+    // メモ作成
+    const memoText = eventData.text || eventData.title || '';
+    const memo = await createMemo({ text: memoText }, userId, env);
+
+    await sendLineMessage(
+      userId,
+      `📝 メモを保存しました！\n\n${memoText.length > 100 ? memoText.substring(0, 100) + '...' : memoText}`,
+      env.LINE_CHANNEL_ACCESS_TOKEN
+    );
+  } else if (type === 'task') {
+    // タスク作成
     const taskData = {
       title: eventData.title,
       due: eventData.date || null,
