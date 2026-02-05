@@ -75,11 +75,16 @@ app.get('/liff', async (req, res) => {
   const { generateLiffHtml } = await import('./liff.js');
   const liffId = process.env.LIFF_ID || 'YOUR_LIFF_ID';
   const apiBase = `https://${req.get('host')}`;
-  const html = generateLiffHtml(liffId, apiBase);
+  let html = generateLiffHtml(liffId, apiBase);
+  // キャッシュ回避用のタイムスタンプを埋め込み
+  html = html.replace('</head>', `<!-- build: ${Date.now()} --></head>`);
   res.set({
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
     'Pragma': 'no-cache',
-    'Expires': '0'
+    'Expires': '0',
+    'Surrogate-Control': 'no-store',
+    'ETag': `"${Date.now()}"`,
+    'Vary': '*'
   });
   res.type('html').send(html);
 });
@@ -89,13 +94,27 @@ app.get('/liff2', async (req, res) => {
   const { generateLiffHtml } = await import('./liff.js');
   const liffId = process.env.LIFF_ID || 'YOUR_LIFF_ID';
   const apiBase = `https://${req.get('host')}`;
-  const html = generateLiffHtml(liffId, apiBase);
+  let html = generateLiffHtml(liffId, apiBase);
+  html = html.replace('</head>', `<!-- build: ${Date.now()} --></head>`);
   res.set({
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
     'Expires': '0'
   });
   res.type('html').send(html);
+});
+
+// Debug: OAuth設定確認
+app.get('/api/oauth-debug', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { env } = await import('./env-adapter.js');
+  res.json({
+    redirect_uri: env.OAUTH_REDIRECT_URI || 'NOT SET',
+    client_id_set: !!env.GOOGLE_CLIENT_ID,
+    client_id_prefix: env.GOOGLE_CLIENT_ID ? env.GOOGLE_CLIENT_ID.substring(0, 20) + '...' : null,
+    client_secret_set: !!env.GOOGLE_CLIENT_SECRET,
+    expected_callback: 'https://line-calendar-bot-67385363897.asia-northeast1.run.app/oauth/callback'
+  });
 });
 
 // LIFF API: 認証状態確認
@@ -134,6 +153,36 @@ app.get('/api/auth-url', async (req, res) => {
     res.json({ authUrl });
   } catch (error) {
     console.error('Auth URL generation error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// LIFF API: Google連携解除
+app.post('/api/auth-revoke', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { revokeUserTokens } = await import('./oauth.js');
+    const { env } = await import('./env-adapter.js');
+
+    await revokeUserTokens(userId, env);
+
+    // 同期設定もオフにする
+    const settings = {
+      googleCalendarSync: false,
+      googleTasksSync: false,
+      updatedAt: new Date().toISOString()
+    };
+    await env.NOTIFICATIONS.put(`sync_settings:${userId}`, JSON.stringify(settings));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Auth revoke error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -378,6 +427,26 @@ app.delete('/api/events', async (req, res) => {
   }
 });
 
+// 予定リマインダー取得（認証不要 - ローカルイベントでも使用）
+app.get('/api/event-reminders', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, eventId } = req.query;
+
+  if (!userId || !eventId) {
+    return res.status(400).json({ error: 'userId, eventId required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+
+    const reminderData = await env.NOTIFICATIONS.get(`event_reminder_${userId}_${eventId}`, { type: 'json' });
+    res.json(reminderData || null);
+  } catch (err) {
+    console.error('Get event reminders error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // タスクリスト取得
 app.get('/api/tasklists', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -448,6 +517,31 @@ app.post('/api/tasks', async (req, res) => {
   }
 });
 
+// タスクリマインダー取得
+app.get('/api/task-reminders', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, taskId } = req.query;
+
+  if (!userId || !taskId) {
+    return res.status(400).json({ error: 'userId, taskId required' });
+  }
+
+  try {
+    const { isUserAuthenticated } = await import('./oauth.js');
+    const { env } = await import('./env-adapter.js');
+
+    if (!await isUserAuthenticated(userId, env)) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const reminderData = await env.NOTIFICATIONS.get(`task_reminder_${userId}_${taskId}`, { type: 'json' });
+    res.json(reminderData || null);
+  } catch (err) {
+    console.error('Get task reminders error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // タスク削除
 app.delete('/api/tasks', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -474,7 +568,7 @@ app.delete('/api/tasks', async (req, res) => {
   }
 });
 
-// メモ一覧取得
+// メモ一覧取得（認証不要 - ローカル機能）
 app.get('/api/memos', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   const { userId } = req.query;
@@ -484,13 +578,8 @@ app.get('/api/memos', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
     const { getMemos } = await import('./memo.js');
     const { env } = await import('./env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
 
     const memos = await getMemos(userId, env);
     res.json(memos);
@@ -500,29 +589,43 @@ app.get('/api/memos', async (req, res) => {
   }
 });
 
-// メモ作成（画像はBase64で送信）
+// メモ作成（画像・ファイル・音声はBase64で送信）
 app.post('/api/memos', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, text, imageBase64 } = req.body;
+  const {
+    userId,
+    text,
+    imageBase64,
+    // ファイル添付
+    fileBase64,
+    fileName,
+    fileType,
+    fileSize,
+    // 音声
+    audioBase64,
+    audioDuration
+  } = req.body;
 
   if (!userId) {
     return res.status(400).json({ error: 'userId required' });
   }
 
-  if (!text && !imageBase64) {
-    return res.status(400).json({ error: 'text or image required' });
+  if (!text && !imageBase64 && !fileBase64 && !audioBase64) {
+    return res.status(400).json({ error: 'text, image, file or audio required' });
+  }
+
+  // ファイルサイズチェック（10MB）
+  if (fileSize && fileSize > 10 * 1024 * 1024) {
+    return res.status(400).json({ error: 'ファイルサイズが10MBを超えています' });
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
-    const { createMemo, uploadImage } = await import('./memo.js');
+    const { createMemo, uploadImage, uploadFile, uploadAudio } = await import('./memo.js');
     const { env } = await import('./env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     let imageUrl = null;
+    let fileUrl = null;
+    let audioUrl = null;
 
     // 画像がある場合はGCSにアップロード
     if (imageBase64) {
@@ -530,7 +633,29 @@ app.post('/api/memos', async (req, res) => {
       imageUrl = await uploadImage(imageBuffer, userId);
     }
 
-    const memo = await createMemo({ text, imageUrl }, userId, env);
+    // ファイルがある場合はGCSにアップロード
+    if (fileBase64 && fileName) {
+      const fileBuffer = Buffer.from(fileBase64, 'base64');
+      fileUrl = await uploadFile(fileBuffer, userId, fileName, fileType || 'application/octet-stream');
+    }
+
+    // 音声がある場合はGCSにアップロード
+    if (audioBase64) {
+      const audioBuffer = Buffer.from(audioBase64, 'base64');
+      audioUrl = await uploadAudio(audioBuffer, userId, 'audio/webm');
+    }
+
+    const memo = await createMemo({
+      text,
+      imageUrl,
+      fileUrl,
+      fileName: fileUrl ? fileName : null,
+      fileType: fileUrl ? fileType : null,
+      fileSize: fileUrl ? fileSize : null,
+      audioUrl,
+      audioDuration: audioUrl ? audioDuration : null
+    }, userId, env);
+
     res.json(memo);
   } catch (err) {
     console.error('Create memo error:', err);
@@ -538,7 +663,7 @@ app.post('/api/memos', async (req, res) => {
   }
 });
 
-// メモ削除
+// メモ削除（認証不要 - ローカル機能）
 app.delete('/api/memos', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   const { userId, memoId } = req.body;
@@ -548,13 +673,8 @@ app.delete('/api/memos', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
     const { deleteMemo } = await import('./memo.js');
     const { env } = await import('./env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
 
     await deleteMemo(memoId, userId, env);
     res.json({ success: true });
@@ -593,22 +713,17 @@ app.get('/api/projects', async (req, res) => {
 // プロジェクト作成
 app.post('/api/projects', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, name, description, color, isPersonal } = req.body;
+  const { userId, name, description, color, isPersonal, editPermission } = req.body;
 
   if (!userId || !name) {
     return res.status(400).json({ error: 'userId, name required' });
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
     const { createProject } = await import('./project.js');
     const { env } = await import('./env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const project = await createProject({ name, description, color, isPersonal }, userId, env);
+    const project = await createProject({ name, description, color, isPersonal, editPermission }, userId, env);
     res.json(project);
   } catch (err) {
     console.error('Create project error:', err);
@@ -776,26 +891,28 @@ app.get('/api/shared-events', async (req, res) => {
 // 共有カレンダーに予定作成
 app.post('/api/shared-events', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, projectId, title, date, startTime, endTime, isAllDay, location } = req.body;
+  const { userId, projectId, title, date, startTime, endTime, isAllDay, location, notifyMembers } = req.body;
 
   if (!userId || !projectId || !title || !date) {
     return res.status(400).json({ error: 'userId, projectId, title, date required' });
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
     const { createSharedEvent } = await import('./shared-calendar.js');
-    const { getProject } = await import('./project.js');
+    const { getProject, canUserEditProject } = await import('./project.js');
+    const { sendLineMessage } = await import('./line.js');
     const { env } = await import('./env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
 
     // プロジェクトのメンバーかチェック
     const project = await getProject(projectId, env);
     if (!project || !project.members.includes(userId)) {
       return res.status(403).json({ error: 'このカレンダーにアクセスできません' });
+    }
+
+    // 編集権限チェック
+    const canEdit = await canUserEditProject(projectId, userId, env);
+    if (!canEdit) {
+      return res.status(403).json({ error: 'このカレンダーを編集する権限がありません' });
     }
 
     const eventData = {
@@ -808,6 +925,25 @@ app.post('/api/shared-events', async (req, res) => {
     };
 
     const event = await createSharedEvent(eventData, projectId, userId, env);
+
+    // メンバーに通知
+    if (notifyMembers && project.members.length > 1) {
+      const creatorData = await env.NOTIFICATIONS.get(`user:${userId}`, { type: 'json' });
+      const creatorName = creatorData?.displayName || '誰か';
+      const timeStr = isAllDay ? '終日' : (startTime ? startTime + (endTime ? ' - ' + endTime : '') : '');
+      const message = `📅 新しい予定が追加されました\n\n📝 ${title}\n📆 ${date}${timeStr ? '\n⏰ ' + timeStr : ''}${location ? '\n📍 ' + location : ''}\n\n👤 ${creatorName}さんが「${project.name}」に追加しました`;
+
+      for (const memberId of project.members) {
+        if (memberId !== userId) {
+          try {
+            await sendLineMessage(memberId, message, env.LINE_CHANNEL_ACCESS_TOKEN);
+          } catch (notifyErr) {
+            console.error(`Failed to notify member ${memberId}:`, notifyErr);
+          }
+        }
+      }
+    }
+
     res.json(event);
   } catch (err) {
     console.error('Create shared event error:', err);
@@ -825,19 +961,20 @@ app.delete('/api/shared-events', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
     const { deleteSharedEvent } = await import('./shared-calendar.js');
-    const { getProject } = await import('./project.js');
+    const { getProject, canUserEditProject } = await import('./project.js');
     const { env } = await import('./env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
 
     // プロジェクトのメンバーかチェック
     const project = await getProject(projectId, env);
     if (!project || !project.members.includes(userId)) {
       return res.status(403).json({ error: 'このカレンダーにアクセスできません' });
+    }
+
+    // 編集権限チェック
+    const canEdit = await canUserEditProject(projectId, userId, env);
+    if (!canEdit) {
+      return res.status(403).json({ error: 'このカレンダーを編集する権限がありません' });
     }
 
     await deleteSharedEvent(eventId, projectId, userId, env);
@@ -881,22 +1018,17 @@ app.get('/api/shared-tasklists', async (req, res) => {
 // 共有タスクリスト作成
 app.post('/api/shared-tasklists', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, name, color } = req.body;
+  const { userId, name, color, editPermission } = req.body;
 
   if (!userId || !name) {
     return res.status(400).json({ error: 'userId, name required' });
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
     const { createSharedTaskList } = await import('./shared-tasklist.js');
     const { env } = await import('./env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const list = await createSharedTaskList({ name, color }, userId, env);
+    const list = await createSharedTaskList({ name, color, editPermission }, userId, env);
     res.json(list);
   } catch (err) {
     console.error('Create shared tasklist error:', err);
@@ -907,22 +1039,17 @@ app.post('/api/shared-tasklists', async (req, res) => {
 // 共有タスクリスト更新
 app.post('/api/shared-tasklists/update', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, listId, name, color } = req.body;
+  const { userId, listId, name, color, editPermission } = req.body;
 
   if (!userId || !listId || !name) {
     return res.status(400).json({ error: 'userId, listId, name required' });
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
     const { updateSharedTaskList } = await import('./shared-tasklist.js');
     const { env } = await import('./env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
-    const list = await updateSharedTaskList(listId, { name, color }, userId, env);
+    const list = await updateSharedTaskList(listId, { name, color, editPermission }, userId, env);
     res.json(list);
   } catch (err) {
     console.error('Update shared tasklist error:', err);
@@ -1037,22 +1164,46 @@ app.get('/api/shared-tasks', async (req, res) => {
 // 共有タスク作成
 app.post('/api/shared-tasks', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, listId, title, due } = req.body;
+  const { userId, listId, title, due, notifyMembers } = req.body;
 
   if (!userId || !listId || !title) {
     return res.status(400).json({ error: 'userId, listId, title required' });
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
-    const { createSharedTask } = await import('./shared-tasklist.js');
+    const { createSharedTask, getSharedTaskList, canUserEditTaskList } = await import('./shared-tasklist.js');
+    const { sendLineMessage } = await import('./line.js');
     const { env } = await import('./env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    // 編集権限チェック
+    const canEdit = await canUserEditTaskList(listId, userId, env);
+    if (!canEdit) {
+      return res.status(403).json({ error: 'このタスクリストを編集する権限がありません' });
     }
 
     const task = await createSharedTask({ title, due }, listId, userId, env);
+
+    // メンバーに通知
+    if (notifyMembers) {
+      const list = await getSharedTaskList(listId, env);
+      if (list && list.members.length > 1) {
+        const creatorData = await env.NOTIFICATIONS.get(`user:${userId}`, { type: 'json' });
+        const creatorName = creatorData?.displayName || '誰か';
+        const dueStr = due ? `\n📅 期限: ${due.substring(0, 10)}` : '';
+        const message = `✅ 新しいタスクが追加されました\n\n📝 ${title}${dueStr}\n\n👤 ${creatorName}さんが「${list.name}」に追加しました`;
+
+        for (const memberId of list.members) {
+          if (memberId !== userId) {
+            try {
+              await sendLineMessage(memberId, message, env.LINE_CHANNEL_ACCESS_TOKEN);
+            } catch (notifyErr) {
+              console.error(`Failed to notify member ${memberId}:`, notifyErr);
+            }
+          }
+        }
+      }
+    }
+
     res.json(task);
   } catch (err) {
     console.error('Create shared task error:', err);
@@ -1070,12 +1221,13 @@ app.post('/api/shared-tasks/complete', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
-    const { completeSharedTask } = await import('./shared-tasklist.js');
+    const { completeSharedTask, canUserEditTaskList } = await import('./shared-tasklist.js');
     const { env } = await import('./env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    // 編集権限チェック
+    const canEdit = await canUserEditTaskList(listId, userId, env);
+    if (!canEdit) {
+      return res.status(403).json({ error: 'このタスクリストを編集する権限がありません' });
     }
 
     await completeSharedTask(taskId, listId, userId, env, userName);
@@ -1096,12 +1248,13 @@ app.delete('/api/shared-tasks', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
-    const { deleteSharedTask } = await import('./shared-tasklist.js');
+    const { deleteSharedTask, canUserEditTaskList } = await import('./shared-tasklist.js');
     const { env } = await import('./env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    // 編集権限チェック
+    const canEdit = await canUserEditTaskList(listId, userId, env);
+    if (!canEdit) {
+      return res.status(403).json({ error: 'このタスクリストを編集する権限がありません' });
     }
 
     await deleteSharedTask(taskId, listId, userId, env);
@@ -1209,6 +1362,404 @@ app.post('/api/settings/notifications', async (req, res) => {
   }
 });
 
+// ========================================
+// 同期設定 API
+// ========================================
+
+// 同期設定取得
+app.get('/api/sync-settings', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const settings = await env.NOTIFICATIONS.get(`sync_settings:${userId}`, { type: 'json' });
+    res.json(settings || { googleCalendarSync: false, googleTasksSync: false });
+  } catch (err) {
+    console.error('Get sync settings error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 同期設定更新
+app.post('/api/sync-settings', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, googleCalendarSync, googleTasksSync } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const settings = {
+      googleCalendarSync: googleCalendarSync || false,
+      googleTasksSync: googleTasksSync || false,
+      updatedAt: new Date().toISOString()
+    };
+    await env.NOTIFICATIONS.put(`sync_settings:${userId}`, JSON.stringify(settings));
+    res.json({ success: true, settings });
+  } catch (err) {
+    console.error('Update sync settings error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ========================================
+// ローカルイベント API
+// ========================================
+
+// ローカルイベント取得
+app.get('/api/local-events', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, days } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { getLocalEvents } = await import('./local-calendar.js');
+    const { env } = await import('./env-adapter.js');
+
+    const events = await getLocalEvents(userId, env, parseInt(days) || 90);
+    res.json(events);
+  } catch (err) {
+    console.error('Get local events error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ローカルイベント作成
+app.post('/api/local-events', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders } = req.body;
+
+  if (!userId || !title || !date) {
+    return res.status(400).json({ error: 'userId, title, date required' });
+  }
+
+  try {
+    const { createLocalEvent } = await import('./local-calendar.js');
+    const { env } = await import('./env-adapter.js');
+
+    const eventData = {
+      title,
+      date,
+      startTime: startTime || '09:00',
+      endTime: endTime || '10:00',
+      isAllDay: isAllDay || false,
+      location,
+      url,
+      memo
+    };
+
+    const result = await createLocalEvent(eventData, userId, env);
+
+    // リマインダーがある場合はKVに保存
+    if (reminders && reminders.length > 0) {
+      const reminderData = {
+        type: 'event',
+        title,
+        date,
+        startTime: isAllDay ? null : startTime,
+        isAllDay: isAllDay || false,
+        reminders,
+        createdAt: new Date().toISOString()
+      };
+      await env.NOTIFICATIONS.put(
+        `event_reminder_${userId}_${result.id}`,
+        JSON.stringify(reminderData),
+        { expirationTtl: 30 * 24 * 60 * 60 }
+      );
+
+      // ユーザーを通知リストに登録
+      const usersJson = await env.NOTIFICATIONS.get('notification_users', { type: 'json' });
+      const users = usersJson || [];
+      if (!users.includes(userId)) {
+        users.push(userId);
+        await env.NOTIFICATIONS.put('notification_users', JSON.stringify(users));
+      }
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('Create local event error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ローカルイベント更新
+app.put('/api/local-events', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, eventId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders } = req.body;
+
+  if (!userId || !eventId) {
+    return res.status(400).json({ error: 'userId, eventId required' });
+  }
+
+  try {
+    const { updateLocalEvent, getLocalEvent } = await import('./local-calendar.js');
+    const { env } = await import('./env-adapter.js');
+
+    // 既存のイベントを取得
+    const existingEvent = await getLocalEvent(eventId, userId, env);
+    if (!existingEvent) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    // descriptionを再構築
+    let description = '';
+    if (url) {
+      description += url;
+    }
+    if (memo) {
+      if (description) description += '\n\n';
+      description += memo;
+    }
+
+    const eventData = {
+      title,
+      date,
+      startTime: startTime || '09:00',
+      endTime: endTime || '10:00',
+      isAllDay: isAllDay || false,
+      location,
+      description
+    };
+
+    const result = await updateLocalEvent(eventId, eventData, userId, env);
+
+    // リマインダーを更新
+    if (reminders && reminders.length > 0) {
+      const reminderData = {
+        type: 'event',
+        title,
+        date,
+        startTime: isAllDay ? null : startTime,
+        isAllDay: isAllDay || false,
+        reminders,
+        createdAt: new Date().toISOString()
+      };
+      await env.NOTIFICATIONS.put(
+        `event_reminder_${userId}_${eventId}`,
+        JSON.stringify(reminderData),
+        { expirationTtl: 30 * 24 * 60 * 60 }
+      );
+
+      // ユーザーを通知リストに登録
+      const usersJson = await env.NOTIFICATIONS.get('notification_users', { type: 'json' });
+      const users = usersJson || [];
+      if (!users.includes(userId)) {
+        users.push(userId);
+        await env.NOTIFICATIONS.put('notification_users', JSON.stringify(users));
+      }
+    } else {
+      // リマインダーがない場合は削除
+      await env.NOTIFICATIONS.delete(`event_reminder_${userId}_${eventId}`);
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('Update local event error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ローカルイベント削除
+app.delete('/api/local-events', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, eventId } = req.body;
+
+  if (!userId || !eventId) {
+    return res.status(400).json({ error: 'userId, eventId required' });
+  }
+
+  try {
+    const { deleteLocalEvent } = await import('./local-calendar.js');
+    const { env } = await import('./env-adapter.js');
+
+    await deleteLocalEvent(eventId, userId, env);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete local event error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ========================================
+// ローカルタスク API
+// ========================================
+
+// ローカルタスク取得
+app.get('/api/local-tasks', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { getLocalTasks } = await import('./local-tasks.js');
+    const { env } = await import('./env-adapter.js');
+
+    const tasks = await getLocalTasks(userId, env);
+    res.json(tasks);
+  } catch (err) {
+    console.error('Get local tasks error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ローカルタスク作成
+app.post('/api/local-tasks', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, title, due, listName, reminders } = req.body;
+
+  if (!userId || !title) {
+    return res.status(400).json({ error: 'userId, title required' });
+  }
+
+  try {
+    const { createLocalTask } = await import('./local-tasks.js');
+    const { env } = await import('./env-adapter.js');
+
+    const taskData = { title, due, listName };
+    const result = await createLocalTask(taskData, userId, env);
+
+    // リマインダーがある場合はKVに保存
+    if (reminders && reminders.length > 0 && due) {
+      const reminderData = {
+        type: 'task',
+        title,
+        due,
+        reminders,
+        createdAt: new Date().toISOString()
+      };
+      await env.NOTIFICATIONS.put(
+        `task_reminder_${userId}_${result.id}`,
+        JSON.stringify(reminderData),
+        { expirationTtl: 90 * 24 * 60 * 60 }
+      );
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('Create local task error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ローカルタスク完了
+app.post('/api/local-tasks/complete', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, taskId } = req.body;
+
+  if (!userId || !taskId) {
+    return res.status(400).json({ error: 'userId, taskId required' });
+  }
+
+  try {
+    const { completeLocalTask } = await import('./local-tasks.js');
+    const { env } = await import('./env-adapter.js');
+
+    await completeLocalTask(taskId, userId, env);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Complete local task error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ローカルタスク完了取消し
+app.post('/api/local-tasks/uncomplete', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, taskId } = req.body;
+
+  if (!userId || !taskId) {
+    return res.status(400).json({ error: 'userId, taskId required' });
+  }
+
+  try {
+    const { uncompleteLocalTask } = await import('./local-tasks.js');
+    const { env } = await import('./env-adapter.js');
+
+    await uncompleteLocalTask(taskId, userId, env);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Uncomplete local task error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ローカルタスク削除
+app.delete('/api/local-tasks', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, taskId } = req.body;
+
+  if (!userId || !taskId) {
+    return res.status(400).json({ error: 'userId, taskId required' });
+  }
+
+  try {
+    const { deleteLocalTask } = await import('./local-tasks.js');
+    const { env } = await import('./env-adapter.js');
+
+    await deleteLocalTask(taskId, userId, env);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete local task error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ローカルタスク更新
+app.post('/api/local-tasks/update', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, taskId, title, due } = req.body;
+
+  if (!userId || !taskId || !title) {
+    return res.status(400).json({ error: 'userId, taskId, title required' });
+  }
+
+  try {
+    const { updateLocalTask } = await import('./local-tasks.js');
+    const { env } = await import('./env-adapter.js');
+
+    await updateLocalTask(taskId, { title, due }, userId, env);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Update local task error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 完了済みローカルタスク取得
+app.get('/api/local-tasks/completed', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { getLocalCompletedTasks } = await import('./local-tasks.js');
+    const { env } = await import('./env-adapter.js');
+
+    const tasks = await getLocalCompletedTasks(userId, env);
+    res.json(tasks);
+  } catch (err) {
+    console.error('Get completed local tasks error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // CORS プリフライト
 app.options('/api/*', (req, res) => {
   res.set({
@@ -1272,6 +1823,227 @@ app.get('/scheduled', async (req, res) => {
   } catch (err) {
     console.error('Scheduled task error:', err);
     res.status(500).send('Error');
+  }
+});
+
+// ==================== バックアップAPI ====================
+
+// バックアップエクスポート（JSONダウンロード用）
+app.get('/api/backup/export', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { exportUserData } = await import('./backup.js');
+    const exportData = await exportUserData(userId, env);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="calendar-backup-${new Date().toISOString().split('T')[0]}.json"`);
+    res.json(exportData);
+  } catch (err) {
+    console.error('Backup export error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// バックアップインポート
+app.post('/api/backup/import', async (req, res) => {
+  const { userId, data, merge } = req.body;
+  if (!userId || !data) {
+    return res.status(400).json({ error: 'userId and data are required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { importUserData } = await import('./backup.js');
+    const result = await importUserData(userId, data, env, merge || false);
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error('Backup import error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// バックアップ一覧取得
+app.get('/api/backup/list', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { listBackups, getLastBackupTime } = await import('./backup.js');
+    const backups = await listBackups(userId, env);
+    const lastBackupTime = await getLastBackupTime(userId, env);
+    res.json({ backups, lastBackupTime });
+  } catch (err) {
+    console.error('Backup list error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// バックアップから復元
+app.post('/api/backup/restore', async (req, res) => {
+  const { userId, backupId } = req.body;
+  if (!userId || !backupId) {
+    return res.status(400).json({ error: 'userId and backupId are required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { restoreFromBackup } = await import('./backup.js');
+    const result = await restoreFromBackup(userId, backupId, env);
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error('Backup restore error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 手動バックアップ作成
+app.post('/api/backup/create', async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { createBackup } = await import('./backup.js');
+    const result = await createBackup(userId, env);
+    res.json({ success: true, backup: result });
+  } catch (err) {
+    console.error('Backup create error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 自動バックアップ設定取得
+app.get('/api/backup/settings', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId is required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { autoBackupSetting, getLastBackupTime } = await import('./backup.js');
+    const autoBackupEnabled = await autoBackupSetting(userId, env);
+    const lastBackupTime = await getLastBackupTime(userId, env);
+    res.json({ autoBackupEnabled, lastBackupTime });
+  } catch (err) {
+    console.error('Backup settings get error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 自動バックアップ設定更新
+app.post('/api/backup/settings', async (req, res) => {
+  const { userId, autoBackupEnabled } = req.body;
+  if (!userId || autoBackupEnabled === undefined) {
+    return res.status(400).json({ error: 'userId and autoBackupEnabled are required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { autoBackupSetting } = await import('./backup.js');
+    await autoBackupSetting(userId, env, autoBackupEnabled);
+    res.json({ success: true, autoBackupEnabled });
+  } catch (err) {
+    console.error('Backup settings update error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== プロジェクト管理API ====================
+
+// プロジェクト進捗取得
+app.get('/api/project/progress', async (req, res) => {
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { getProjectProgress, generateProgressSummary } = await import('./project-manager.js');
+
+    const progress = await getProjectProgress(env);
+    const summary = await generateProgressSummary(env);
+
+    res.json({ progress, summary });
+  } catch (err) {
+    console.error('Project progress error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// タスクステータス更新
+app.post('/api/project/task', async (req, res) => {
+  const { phaseId, taskId, status } = req.body;
+  if (!phaseId || !taskId || !status) {
+    return res.status(400).json({ error: 'phaseId, taskId, and status are required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { updateTaskStatus, addActivityLog } = await import('./project-manager.js');
+
+    await updateTaskStatus(phaseId, taskId, status, env);
+    await addActivityLog(`タスク ${taskId} を ${status} に更新`, env);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Task update error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 活動ログ取得
+app.get('/api/project/logs', async (req, res) => {
+  const limit = parseInt(req.query.limit) || 20;
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { getRecentActivityLogs } = await import('./project-manager.js');
+
+    const logs = await getRecentActivityLogs(limit, env);
+    res.json({ logs });
+  } catch (err) {
+    console.error('Activity logs error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Claudeへのメッセージ取得（Claude Codeから確認用）
+app.get('/api/project/messages', async (req, res) => {
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { getMessagesForClaude } = await import('./project-manager.js');
+
+    const messages = await getMessagesForClaude(env);
+    res.json({ messages });
+  } catch (err) {
+    console.error('Messages fetch error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// メッセージを記録
+app.post('/api/project/messages', async (req, res) => {
+  const { message } = req.body;
+  if (!message) {
+    return res.status(400).json({ error: 'message is required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { saveMessageForClaude } = await import('./project-manager.js');
+
+    await saveMessageForClaude(message, env);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Message save error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

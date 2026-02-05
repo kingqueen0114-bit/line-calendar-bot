@@ -16,6 +16,7 @@ export async function createSharedTaskList(listData, userId, env) {
     ownerId: userId,
     members: [userId],
     inviteCode,
+    editPermission: listData.editPermission || 'all', // 'owner' or 'all'
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -66,6 +67,10 @@ export async function updateSharedTaskList(listId, updates, userId, env) {
 
   if (updates.name) list.name = updates.name;
   if (updates.color) list.color = updates.color;
+  // editPermissionはオーナーのみ変更可能
+  if (updates.editPermission !== undefined && list.ownerId === userId) {
+    list.editPermission = updates.editPermission;
+  }
 
   list.updatedAt = new Date().toISOString();
 
@@ -308,6 +313,33 @@ export async function getAllCompletedSharedTasksForUser(userId, env) {
   });
 
   return allTasks;
+}
+
+/**
+ * ユーザーがタスクリストのコンテンツを編集できるかチェック
+ * @param {string} listId - タスクリストID
+ * @param {string} userId - ユーザーID
+ * @param {object} env - 環境オブジェクト
+ * @returns {Promise<boolean>} - 編集可能かどうか
+ */
+export async function canUserEditTaskList(listId, userId, env) {
+  const list = await getSharedTaskList(listId, env);
+  if (!list) {
+    return false;
+  }
+
+  // メンバーでない場合は編集不可
+  if (!list.members.includes(userId)) {
+    return false;
+  }
+
+  // オーナーは常に編集可能
+  if (list.ownerId === userId) {
+    return true;
+  }
+
+  // editPermissionに基づいて判定
+  return list.editPermission === 'all';
 }
 
 // ヘルパー関数

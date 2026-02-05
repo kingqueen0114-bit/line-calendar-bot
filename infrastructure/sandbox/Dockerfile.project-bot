@@ -1,0 +1,17 @@
+FROM node:20-slim
+
+WORKDIR /app
+
+# パッケージファイルをコピー
+COPY package*.json ./
+
+# 依存関係をインストール
+RUN npm ci --only=production
+
+# プロジェクト管理Bot専用のソースをコピー
+COPY src/project-bot/ ./src/
+
+ENV PORT=8081
+EXPOSE 8081
+
+CMD ["node", "src/server.js"]

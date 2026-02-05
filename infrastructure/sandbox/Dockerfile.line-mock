@@ -1,0 +1,15 @@
+FROM node:20-slim
+
+WORKDIR /app
+
+# 依存関係をインストール
+RUN npm init -y && npm install express
+
+# モックサーバーをコピー
+COPY line-mock-server.js ./server.js
+COPY line-mock-ui.html ./public/index.html
+
+ENV PORT=8082
+EXPOSE 8082
+
+CMD ["node", "server.js"]

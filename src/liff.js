@@ -10,11 +10,29 @@ export function generateLiffHtml(liffId, apiBase) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Project Sync</title>
+  <title>Project Sync v6</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script>
+    // 早期テーマカラー適用（ちらつき防止）
+    (function() {
+      var color = localStorage.getItem('themeColor');
+      var css = 'body{opacity:0;transition:opacity 0.1s}body.ready{opacity:1}';
+      if (color) {
+        var num = parseInt(color.slice(1), 16);
+        var r = Math.max(0, Math.min(255, (num >> 16) - 20));
+        var g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) - 20));
+        var b = Math.max(0, Math.min(255, (num & 0x0000FF) - 20));
+        var darkerColor = '#' + (0x1000000 + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        css += ':root{--primary:' + color + ';--primary-dark:' + darkerColor + ';--fab-shadow:0 4px 12px ' + color + '66;}';
+      }
+      var style = document.createElement('style');
+      style.textContent = css;
+      document.head.appendChild(style);
+    })();
+  </script>
   <style>
     :root {
       --primary: #06c755;
@@ -803,6 +821,66 @@ export function generateLiffHtml(liffId, apiBase) {
     }
     .uncomplete-btn:active { background: var(--border); }
 
+    /* メンバー通知トグル */
+    .notify-toggle-group {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: var(--bg);
+      border-radius: 10px;
+      margin-top: 12px;
+    }
+    .notify-toggle-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .notify-toggle-label svg {
+      width: 20px;
+      height: 20px;
+      color: var(--primary);
+    }
+    .toggle-switch {
+      position: relative;
+      width: 50px;
+      height: 28px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .3s;
+      border-radius: 28px;
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 22px;
+      width: 22px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    .toggle-switch input:checked + .toggle-slider {
+      background-color: var(--primary);
+    }
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(22px);
+    }
+
     /* リマインダーオプション */
     .reminder-options {
       display: flex;
@@ -823,6 +901,87 @@ export function generateLiffHtml(liffId, apiBase) {
       width: 18px;
       height: 18px;
       accent-color: var(--primary);
+    }
+
+    /* カスタムリマインダー */
+    .custom-reminder-section {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--bg);
+      border-radius: 10px;
+    }
+    .custom-reminder-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .custom-reminder-header span {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .custom-reminder-add-btn {
+      padding: 4px 10px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .custom-reminder-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .custom-reminder-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      background: var(--card);
+      border-radius: 8px;
+    }
+    .custom-reminder-item input[type="number"] {
+      width: 60px;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      text-align: center;
+    }
+    .custom-reminder-item select {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      background: white;
+    }
+    .custom-reminder-item input[type="time"] {
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .custom-reminder-remove {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: var(--danger);
+      color: white;
+      border-radius: 50%;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .custom-reminder-empty {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 8px;
     }
 
     /* タスク タブ切替 */
@@ -906,6 +1065,29 @@ export function generateLiffHtml(liffId, apiBase) {
     }
     .memo-search-clear.show {
       display: flex;
+    }
+
+    /* メモ 並び替え */
+    .memo-sort-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .memo-sort-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .memo-sort-select {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      background: var(--card);
+      color: var(--text);
+      outline: none;
     }
 
     /* メモ スタイル切替 */
@@ -1122,6 +1304,265 @@ export function generateLiffHtml(liffId, apiBase) {
     .image-action-btn svg {
       width: 20px;
       height: 20px;
+    }
+
+    /* ファイル添付 */
+    .file-attach-section {
+      margin-bottom: 16px;
+    }
+    .file-attach-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .file-attach-btn:active {
+      border-color: var(--primary);
+      background: rgba(6, 199, 85, 0.05);
+    }
+    .file-attach-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+    .selected-file-info {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border-radius: 8px;
+    }
+    .selected-file-info.show { display: flex; }
+    .selected-file-name {
+      flex: 1;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .selected-file-size {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .file-remove-btn {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: var(--border);
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+    }
+
+    /* 音声録音UI */
+    .voice-recorder {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg);
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+    .record-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #ff4444;
+      border: none;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .record-btn:active {
+      transform: scale(0.95);
+    }
+    .record-btn.recording {
+      animation: pulse 1s infinite;
+    }
+    .record-btn svg {
+      width: 24px;
+      height: 24px;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    .record-info {
+      flex: 1;
+    }
+    .record-status {
+      font-size: 14px;
+      color: var(--text);
+    }
+    .record-time {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      display: none;
+    }
+    .record-time.show { display: block; }
+
+    /* 録音済み音声プレビュー */
+    .recorded-audio {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border-radius: 8px;
+    }
+    .recorded-audio.show { display: flex; }
+    .recorded-audio audio {
+      flex: 1;
+      height: 36px;
+    }
+    .audio-remove-btn {
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: var(--border);
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+    }
+
+    /* メモ一覧の音声・ファイル表示 */
+    .memo-audio-player {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg);
+      border-radius: 20px;
+      margin-top: 8px;
+    }
+    .memo-audio-player audio {
+      flex: 1;
+      height: 32px;
+    }
+    .memo-audio-duration {
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .memo-file-attachment {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-top: 8px;
+      text-decoration: none;
+      color: var(--text);
+      transition: background 0.2s;
+    }
+    .memo-file-attachment:active {
+      background: var(--border);
+    }
+    .memo-file-attachment svg {
+      width: 20px;
+      height: 20px;
+      color: var(--primary);
+    }
+    .memo-file-name {
+      flex: 1;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .memo-file-size {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* 使い方ガイド */
+    .help-section {
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .help-section:last-of-type {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+    .help-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+    .help-icon {
+      font-size: 20px;
+    }
+    .help-content {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+    .help-content p {
+      margin-bottom: 8px;
+    }
+    .help-content p:last-child {
+      margin-bottom: 0;
+    }
+    .help-content strong {
+      color: var(--text);
+    }
+
+    /* バックアップリスト */
+    .backup-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .backup-item {
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 14px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .backup-item:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .backup-item:active {
+      transform: translateY(0);
+    }
+    .backup-date {
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .backup-info {
+      font-size: 12px;
+      color: var(--text-secondary);
     }
 
     .settings-group {
@@ -1352,6 +1793,7 @@ export function generateLiffHtml(liffId, apiBase) {
   </style>
 </head>
 <body>
+<script>document.body.classList.add('ready');</script>
   <div class="app">
     <div class="header">
       <h1>Project Sync</h1>
@@ -1400,6 +1842,15 @@ export function generateLiffHtml(liffId, apiBase) {
           <input type="text" id="memo-search-input" placeholder="メモを検索...">
           <button class="memo-search-clear" id="memo-search-clear" onclick="clearMemoSearch()">×</button>
         </div>
+        <div class="memo-sort-row">
+          <span class="memo-sort-label">並び替え:</span>
+          <select class="memo-sort-select" id="memo-sort-select" onchange="changeMemoSort(this.value)">
+            <option value="created_desc">作成日（新しい順）</option>
+            <option value="created_asc">作成日（古い順）</option>
+            <option value="updated_desc">更新日（新しい順）</option>
+            <option value="updated_asc">更新日（古い順）</option>
+          </select>
+        </div>
         <div class="memo-style-selector">
           <button class="memo-style-btn active" data-style="list">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
@@ -1429,7 +1880,26 @@ export function generateLiffHtml(liffId, apiBase) {
           <div class="settings-item" id="google-auth-status">
             <span class="settings-item-label">Google連携</span>
             <span class="settings-item-value" id="google-auth-value">確認中...</span>
+            <button id="google-auth-revoke-btn" onclick="revokeGoogleAuth()" style="display:none;color:var(--danger);background:none;border:none;text-decoration:underline;font-size:12px;cursor:pointer;margin-left:8px;">解除</button>
           </div>
+        </div>
+        <div class="settings-group">
+          <div class="settings-group-title">Google同期</div>
+          <div class="settings-item">
+            <span class="settings-item-label">Googleカレンダー同期</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="google-calendar-sync-toggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-item">
+            <span class="settings-item-label">Googleタスク同期</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="google-tasks-sync-toggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div id="sync-status-message" style="padding:8px 16px;font-size:13px;color:var(--text-muted);display:none;"></div>
         </div>
         <div class="settings-group">
           <div class="settings-group-title">個人カレンダー</div>
@@ -1517,6 +1987,38 @@ export function generateLiffHtml(liffId, apiBase) {
               <input type="checkbox" id="reminder-toggle" checked>
               <span class="toggle-slider"></span>
             </label>
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="settings-group-title">データバックアップ</div>
+          <div class="settings-item">
+            <span class="settings-item-label">自動バックアップ</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="auto-backup-toggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="settings-item" style="flex-direction:column;align-items:flex-start;gap:4px;">
+            <span class="settings-item-label" style="font-size:12px;color:#666;" id="last-backup-time">最終バックアップ: --</span>
+          </div>
+          <div class="settings-item clickable" onclick="createManualBackup()">
+            <span class="settings-item-label" style="color:var(--primary);">手動バックアップを作成</span>
+          </div>
+          <div class="settings-item clickable" onclick="openBackupListModal()">
+            <span class="settings-item-label" style="color:var(--primary);">バックアップから復元</span>
+          </div>
+          <div class="settings-item clickable" onclick="exportBackupAsJson()">
+            <span class="settings-item-label" style="color:var(--primary);">JSONエクスポート</span>
+          </div>
+          <div class="settings-item clickable" onclick="triggerBackupImport()">
+            <span class="settings-item-label" style="color:var(--primary);">JSONインポート</span>
+          </div>
+          <input type="file" id="backup-file-input" accept=".json" style="display:none;" onchange="importBackupFromJson(event)">
+        </div>
+        <div class="settings-group">
+          <div class="settings-group-title">ヘルプ</div>
+          <div class="settings-item clickable" onclick="openHelpModal()">
+            <span class="settings-item-label" style="color:var(--primary);">📖 使い方ガイドを見る</span>
           </div>
         </div>
       </div>
@@ -1608,6 +2110,27 @@ export function generateLiffHtml(liffId, apiBase) {
               <span>1時間前</span>
             </label>
           </div>
+          <div class="custom-reminder-section">
+            <div class="custom-reminder-header">
+              <span>カスタムリマインダー</span>
+              <button type="button" class="custom-reminder-add-btn" onclick="addEventCustomReminder()">+ 追加</button>
+            </div>
+            <div class="custom-reminder-list" id="event-custom-reminders">
+              <div class="custom-reminder-empty">カスタムリマインダーなし</div>
+            </div>
+          </div>
+        </div>
+        <div class="form-group" id="event-notify-group" style="display:none;">
+          <div class="notify-toggle-group">
+            <div class="notify-toggle-label">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+              <span>メンバーに通知</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="event-notify-members">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
         <button class="btn btn-primary" id="event-submit" onclick="submitEvent()">追加</button>
         <button class="btn btn-danger" id="event-delete" style="display:none;" onclick="deleteEvent()">削除</button>
@@ -1655,10 +2178,35 @@ export function generateLiffHtml(liffId, apiBase) {
               <span>当日朝9時</span>
             </label>
           </div>
+          <div class="custom-reminder-section">
+            <div class="custom-reminder-header">
+              <span>カスタムリマインダー</span>
+              <button type="button" class="custom-reminder-add-btn" onclick="addTaskCustomReminder()">+ 追加</button>
+            </div>
+            <div class="custom-reminder-list" id="task-custom-reminders">
+              <div class="custom-reminder-empty">カスタムリマインダーなし</div>
+            </div>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">リスト</label>
           <select class="form-select" id="task-list-select"></select>
+        </div>
+        <div class="form-group" id="task-reminder-display" style="display:none;">
+          <label class="form-label">🔔 リマインダー</label>
+          <div id="task-reminder-text" style="color:var(--text-secondary);font-size:14px;"></div>
+        </div>
+        <div class="form-group" id="task-notify-group" style="display:none;">
+          <div class="notify-toggle-group">
+            <div class="notify-toggle-label">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+              <span>メンバーに通知</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="task-notify-members">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
         <div id="task-create-btns">
           <button class="btn btn-primary" id="task-submit" onclick="submitTask()">追加</button>
@@ -1724,6 +2272,13 @@ export function generateLiffHtml(liffId, apiBase) {
               <div class="event-detail-value" id="event-detail-memo" style="white-space:pre-wrap;"></div>
             </div>
           </div>
+          <div class="event-detail-row" id="event-detail-reminder-row" style="display:none;">
+            <svg class="event-detail-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+            <div>
+              <div class="event-detail-label">リマインダー</div>
+              <div class="event-detail-value" id="event-detail-reminder"></div>
+            </div>
+          </div>
           <div class="event-detail-row" id="event-detail-calendar-row">
             <svg class="event-detail-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
             <div>
@@ -1748,10 +2303,13 @@ export function generateLiffHtml(liffId, apiBase) {
         <button class="modal-close" onclick="closeMemoModal()">×</button>
       </div>
       <div class="modal-body">
+        <!-- 画像プレビュー -->
         <div class="image-preview-container" id="image-preview-container">
           <img class="image-preview" id="image-preview">
           <button class="image-remove-btn" onclick="removeImage()">×</button>
         </div>
+
+        <!-- 画像選択 -->
         <div class="image-actions">
           <label class="image-action-btn">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm9-4h-3.17l-1.83-2H8l-1.83 2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z"/></svg>
@@ -1764,6 +2322,55 @@ export function generateLiffHtml(liffId, apiBase) {
             <input type="file" accept="image/*" style="display:none" onchange="handleImageSelect(event)">
           </label>
         </div>
+
+        <!-- ファイル添付 -->
+        <div class="file-attach-section" id="file-attach-section">
+          <label class="file-attach-btn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
+            ファイルを添付
+            <input type="file" id="memo-file" style="display:none" onchange="handleFileSelect(event)">
+          </label>
+          <div class="selected-file-info" id="selected-file-info">
+            <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px;color:var(--primary);flex-shrink:0;"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+            <span class="selected-file-name" id="selected-file-name"></span>
+            <span class="selected-file-size" id="selected-file-size"></span>
+            <button class="file-remove-btn" onclick="clearSelectedFile()">×</button>
+          </div>
+        </div>
+
+        <!-- 音声録音 -->
+        <div class="form-group">
+          <label class="form-label">ボイスメモ</label>
+          <div class="voice-recorder" id="voice-recorder">
+            <button type="button" id="record-btn" class="record-btn" onclick="toggleRecording()">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+            <div class="record-info">
+              <div class="record-status" id="record-status">タップして録音</div>
+              <div class="record-time" id="record-time">00:00</div>
+            </div>
+          </div>
+          <div class="recorded-audio" id="recorded-audio">
+            <audio id="audio-preview" controls></audio>
+            <button class="audio-remove-btn" onclick="clearRecordedAudio()">×</button>
+          </div>
+        </div>
+
+        <!-- 既存の音声表示（編集時） -->
+        <div class="memo-audio-player" id="existing-audio" style="display:none;">
+          <audio id="existing-audio-player" controls></audio>
+          <span id="existing-audio-duration" class="memo-audio-duration"></span>
+        </div>
+
+        <!-- 既存のファイル表示（編集時） -->
+        <div id="existing-file" style="display:none;margin-bottom:16px;">
+          <a id="existing-file-link" class="memo-file-attachment" href="#" target="_blank">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+            <span class="memo-file-name" id="existing-file-name"></span>
+          </a>
+        </div>
+
+        <!-- メモテキスト -->
         <div class="form-group">
           <label class="form-label">メモ</label>
           <textarea class="form-input" id="memo-text" placeholder="メモを入力..." rows="4" style="resize:none;"></textarea>
@@ -1814,6 +2421,13 @@ export function generateLiffHtml(liffId, apiBase) {
             <div class="color-option" data-color="#78716c" style="background:#78716c;"></div>
             <div class="color-option" data-color="#64748b" style="background:#64748b;"></div>
           </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">編集権限</label>
+          <select class="form-input" id="project-edit-permission">
+            <option value="all">全員が編集可能</option>
+            <option value="owner">オーナーのみ編集可能</option>
+          </select>
         </div>
         <button class="btn btn-primary" onclick="submitCreateProject()">作成</button>
       </div>
@@ -1922,6 +2536,13 @@ export function generateLiffHtml(liffId, apiBase) {
             <div class="color-option" data-color="#64748b" style="background:#64748b;"></div>
           </div>
         </div>
+        <div class="form-group">
+          <label class="form-label">編集権限</label>
+          <select class="form-input" id="tasklist-edit-permission">
+            <option value="all">全員が編集可能</option>
+            <option value="owner">オーナーのみ編集可能</option>
+          </select>
+        </div>
         <button class="btn btn-primary" onclick="submitCreateTaskList()">作成</button>
       </div>
     </div>
@@ -1975,10 +2596,205 @@ export function generateLiffHtml(liffId, apiBase) {
     </div>
   </div>
 
+  <!-- 使い方モーダル -->
+  <div class="modal-overlay" id="help-modal">
+    <div class="modal" style="max-height:90vh;">
+      <div class="modal-header">
+        <h3>使い方ガイド</h3>
+        <button class="modal-close" onclick="closeHelpModal()">×</button>
+      </div>
+      <div class="modal-body" style="padding:16px;">
+        <!-- カレンダー -->
+        <div class="help-section">
+          <div class="help-title">
+            <span class="help-icon">📅</span>
+            <span>カレンダー</span>
+          </div>
+          <div class="help-content">
+            <p><strong>予定を追加：</strong>右下の「+」ボタンをタップ、またはカレンダーの日付をタップして予定を作成できます。</p>
+            <p><strong>表示切替：</strong>月・週・日表示を切り替えられます。</p>
+            <p><strong>予定の編集・削除：</strong>予定をタップして詳細を開き、編集または削除できます。</p>
+          </div>
+        </div>
+
+        <!-- タスク -->
+        <div class="help-section">
+          <div class="help-title">
+            <span class="help-icon">✅</span>
+            <span>タスク</span>
+          </div>
+          <div class="help-content">
+            <p><strong>タスクを追加：</strong>右下の「+」ボタンをタップしてタスクを作成できます。</p>
+            <p><strong>タスクを完了：</strong>タスク左のチェックボックスをタップすると完了になります。</p>
+            <p><strong>期限設定：</strong>タスクには期限と時刻を設定できます。</p>
+          </div>
+        </div>
+
+        <!-- メモ -->
+        <div class="help-section">
+          <div class="help-title">
+            <span class="help-icon">📝</span>
+            <span>メモ</span>
+          </div>
+          <div class="help-content">
+            <p><strong>メモを追加：</strong>テキスト、画像、ファイル、音声を保存できます。</p>
+            <p><strong>表示切替：</strong>リスト表示とグリッド表示を切り替えられます。</p>
+          </div>
+        </div>
+
+        <!-- Google同期 -->
+        <div class="help-section">
+          <div class="help-title">
+            <span class="help-icon">🔄</span>
+            <span>Google同期</span>
+          </div>
+          <div class="help-content">
+            <p><strong>同期オフ（初期状態）：</strong>データはローカルに保存されます。Googleアカウント不要です。</p>
+            <p><strong>同期オン：</strong>設定画面で同期をオンにすると、Googleカレンダー・Googleタスクと連携できます。</p>
+            <p><strong>切り替え：</strong>設定 → Google同期 から切り替えできます。</p>
+          </div>
+        </div>
+
+        <!-- 共有機能 -->
+        <div class="help-section">
+          <div class="help-title">
+            <span class="help-icon">👥</span>
+            <span>共有カレンダー</span>
+          </div>
+          <div class="help-content">
+            <p style="margin-bottom:12px;">家族や友人、チームで予定を共有できる機能です。</p>
+
+            <p><strong>🆕 共有カレンダーを作成する</strong></p>
+            <p style="margin-left:12px;margin-bottom:12px;">設定 → 共有カレンダー → 「+ 新規共有カレンダー作成」をタップ → 名前を入力して作成</p>
+
+            <p><strong>📨 メンバーを招待する</strong></p>
+            <p style="margin-left:12px;margin-bottom:12px;">作成したカレンダーをタップ → 「招待コード」が表示されます → このコードをLINEやメールで共有相手に送ってください</p>
+
+            <p><strong>🔗 招待されたカレンダーに参加する</strong></p>
+            <p style="margin-left:12px;margin-bottom:12px;">設定 → 共有カレンダー → 「招待コードで参加」をタップ → 受け取ったコードを入力 → 参加完了！</p>
+
+            <p><strong>📅 共有カレンダーに予定を追加</strong></p>
+            <p style="margin-left:12px;margin-bottom:12px;">予定作成時に「カレンダー」から共有カレンダーを選択 → 「メンバーに通知」をオンにすると、追加時に全員にLINE通知が届きます</p>
+
+            <p><strong>🚪 退出・削除</strong></p>
+            <p style="margin-left:12px;">カレンダーをタップ → 「退出」で自分だけ抜けられます。オーナーは「削除」でカレンダーごと削除できます</p>
+          </div>
+        </div>
+
+        <!-- 共有タスクリスト -->
+        <div class="help-section">
+          <div class="help-title">
+            <span class="help-icon">📋</span>
+            <span>共有タスクリスト</span>
+          </div>
+          <div class="help-content">
+            <p style="margin-bottom:12px;">買い物リストやTODOをみんなで共有できます。</p>
+
+            <p><strong>🆕 共有タスクリストを作成する</strong></p>
+            <p style="margin-left:12px;margin-bottom:12px;">設定 → 共有タスクリスト → 「+ 新規タスクリスト作成」をタップ</p>
+
+            <p><strong>📨 メンバーを招待する</strong></p>
+            <p style="margin-left:12px;margin-bottom:12px;">作成したリストをタップ → 招待コードを共有相手に送ってください</p>
+
+            <p><strong>✅ タスクを追加・完了</strong></p>
+            <p style="margin-left:12px;margin-bottom:12px;">タスク作成時にリストを選択 → 誰かがタスクを完了すると、完了者の名前が表示されます</p>
+
+            <p><strong>💡 活用例</strong></p>
+            <p style="margin-left:12px;">・家族で「買い物リスト」を共有<br>・チームで「やることリスト」を管理<br>・カップルで「週末の予定」を共有</p>
+          </div>
+        </div>
+
+        <!-- 通知・リマインダー -->
+        <div class="help-section">
+          <div class="help-title">
+            <span class="help-icon">🔔</span>
+            <span>通知・リマインダー設定</span>
+          </div>
+          <div class="help-content">
+            <p style="margin-bottom:12px;">予定やタスクの前にLINEで通知を受け取れます。</p>
+
+            <p><strong>⚙️ 通知のオン/オフ</strong></p>
+            <p style="margin-left:12px;margin-bottom:12px;">設定 → 通知設定 → 「リマインダー通知」をオン/オフ<br>オフにすると全ての通知が届かなくなります</p>
+
+            <p><strong>📅 予定のリマインダー</strong></p>
+            <p style="margin-left:12px;margin-bottom:12px;">予定作成時に以下から選べます：<br>・前日に通知<br>・当日朝9時に通知<br>・1時間前に通知（時間指定の予定のみ）</p>
+
+            <p><strong>✅ タスクのリマインダー</strong></p>
+            <p style="margin-left:12px;margin-bottom:12px;">期限付きタスク作成時に選べます：<br>・1週間前<br>・3日前<br>・前日<br>・当日朝</p>
+
+            <p><strong>📱 通知が届くタイミング</strong></p>
+            <p style="margin-left:12px;">設定した時間にLINEトークでメッセージが届きます。<br>※LINEの通知をオンにしておいてください</p>
+          </div>
+        </div>
+
+        <!-- LINEメッセージ -->
+        <div class="help-section">
+          <div class="help-title">
+            <span class="help-icon">💬</span>
+            <span>LINEメッセージで操作</span>
+          </div>
+          <div class="help-content">
+            <p style="margin-bottom:12px;">このBotにメッセージを送るだけで操作できます。</p>
+
+            <p><strong>📖 予定を確認</strong></p>
+            <p style="margin-left:12px;margin-bottom:8px;">「今日の予定」「明日の予定」「今週の予定」</p>
+
+            <p><strong>➕ 予定を追加</strong></p>
+            <p style="margin-left:12px;margin-bottom:8px;">「明日14時から会議」「来週月曜に歯医者」のように自然な言葉で送信</p>
+
+            <p><strong>✅ タスクを追加</strong></p>
+            <p style="margin-left:12px;margin-bottom:8px;">「牛乳を買う」「レポート提出」など、やることを送信</p>
+
+            <p><strong>📝 メモを保存</strong></p>
+            <p style="margin-left:12px;">テキストや画像を送ると自動でメモに保存されます</p>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;padding:16px;background:linear-gradient(135deg, var(--primary)22, var(--primary)11);border-radius:12px;font-size:13px;">
+          <p style="margin-bottom:10px;font-weight:600;color:var(--text);">💡 便利なヒント</p>
+          <p style="margin-bottom:6px;">・テーマカラーは設定画面で20色から選べます</p>
+          <p style="margin-bottom:6px;">・カレンダーは月・週・日表示を切り替え可能</p>
+          <p style="margin-bottom:6px;">・完了したタスクは「完了済み」から確認・復元できます</p>
+          <p>・困ったときはこのガイドをいつでも確認できます</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- バックアップ一覧モーダル -->
+  <div class="modal-overlay" id="backup-list-modal">
+    <div class="modal" style="max-height:80vh;">
+      <div class="modal-header">
+        <h3>バックアップから復元</h3>
+        <button class="modal-close" onclick="closeBackupListModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px;color:#666;margin-bottom:16px;">
+          復元すると現在のデータは上書きされます。復元前に自動で現在のデータがバックアップされます。
+        </p>
+        <div id="backup-list-container">
+          <div style="text-align:center;padding:32px;color:#999;">読み込み中...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- トースト -->
   <div class="toast" id="toast"></div>
 
   <script>
+    // グローバルエラーハンドラ（デバッグ用）
+    window.onerror = function(msg, url, lineNo, columnNo, error) {
+      console.error('Global error:', msg, url, lineNo, columnNo, error);
+      const errMsg = msg + ' (行:' + lineNo + ')';
+      if (typeof showToast === 'function') {
+        showToast('JS Error: ' + errMsg);
+      } else {
+        alert('Error: ' + errMsg);
+      }
+      return false;
+    };
+
     const LIFF_ID = '${liffId}';
     const API_BASE = '${apiBase}';
 
@@ -1998,12 +2814,23 @@ export function generateLiffHtml(liffId, apiBase) {
     let taskLists = [];
     let memos = [];
     let memoStyle = localStorage.getItem('memoStyle') || 'list';
+    let memoSort = localStorage.getItem('memoSort') || 'created_desc';
     let themeColor = localStorage.getItem('themeColor') || '#06c755';
     let defaultView = localStorage.getItem('defaultView') || 'month';
     let weekStart = localStorage.getItem('weekStart') || '0';
     let taskSortByDue = localStorage.getItem('taskSortByDue') !== 'false';
     let taskFilter = 'all'; // 'all', 'personal', 'shared', or specific list ID
     let selectedImageBase64 = null;
+    let selectedFileBase64 = null;
+    let selectedFileName = null;
+    let selectedFileType = null;
+    let selectedFileSize = null;
+    let recordedAudioBlob = null;
+    let recordedAudioDuration = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recordingStartTime = null;
+    let recordingTimer = null;
     let editingMemo = null;
     let projects = [];
     let currentProject = null;
@@ -2011,9 +2838,13 @@ export function generateLiffHtml(liffId, apiBase) {
     let userId = null;
     let userName = null;
     let editingEvent = null;
+    let eventCustomReminders = [];
+    let taskCustomReminders = [];
     let editingTask = null;
     let isGoogleAuthenticated = true; // Will be updated on first API call
     let googleAuthUrl = null;
+    let googleCalendarSync = false; // 初期状態は同期オフ
+    let googleTasksSync = false; // 初期状態は同期オフ
 
     const WEEKDAYS_JA = ['日', '月', '火', '水', '木', '金', '土'];
     const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -2052,9 +2883,13 @@ export function generateLiffHtml(liffId, apiBase) {
         document.getElementById('user-name').textContent = profile.displayName;
         document.getElementById('settings-username').textContent = profile.displayName;
 
-        // まずGoogle認証状態を確認
+        // 同期設定を読み込み
+        await loadSyncSettings();
+
+        // Google認証状態を確認（同期がオンの場合のみ重要）
         await checkGoogleAuthStatus();
 
+        // 同期設定に基づいてデータをロード
         await Promise.all([loadEvents(), loadTasks(), loadTaskLists(), loadMemos(), loadProjects(), loadSharedEvents(), loadSharedTaskLists(), loadSharedTasks()]);
         renderCalendar();
         renderTasks();
@@ -2062,6 +2897,8 @@ export function generateLiffHtml(liffId, apiBase) {
         renderProjects();
         renderTaskLists();
         loadNotificationSettings();
+        loadBackupSettings();
+        initSyncSettings();
 
         // 招待リンクからの参加処理
         await handleJoinFromUrl();
@@ -2079,14 +2916,39 @@ export function generateLiffHtml(liffId, apiBase) {
     }
 
     function handleTabFromUrl() {
-      const params = new URLSearchParams(window.location.search);
+      // URLパラメータを取得（LIFFの場合、liff.state経由で渡されることがある）
+      let params = new URLSearchParams(window.location.search);
+
+      // liff.stateからもパラメータを取得（LIFFがリダイレクト時にパラメータをエンコードする場合がある）
+      const liffState = params.get('liff.state');
+      if (liffState) {
+        try {
+          const decodedState = decodeURIComponent(liffState);
+          const stateParams = new URLSearchParams(decodedState);
+          stateParams.forEach((value, key) => {
+            if (!params.has(key)) params.set(key, value);
+          });
+        } catch (e) {
+          console.log('Failed to decode liff.state:', e);
+        }
+      }
+
       const tab = params.get('tab');
+      const action = params.get('action');
+
+      console.log('handleTabFromUrl - tab:', tab, 'action:', action, 'search:', window.location.search);
+
       if (tab && ['calendar', 'tasks', 'memo', 'settings'].includes(tab)) {
         document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
         document.getElementById(tab).classList.add('active');
         currentTab = tab;
+      }
+
+      // 使い方モーダルを開く
+      if (action === 'help') {
+        setTimeout(() => openHelpModal(), 500);
       }
     }
 
@@ -2242,9 +3104,16 @@ export function generateLiffHtml(liffId, apiBase) {
 
     async function loadEvents() {
       try {
-        const response = await fetch(API_BASE + '/api/events?userId=' + userId + cacheBust(), { cache: 'no-store' });
-        if (response.status === 401) { handle401Error(); return; }
-        if (response.ok) events = await response.json();
+        // 同期設定に基づいてAPIを切り替え
+        if (googleCalendarSync && isGoogleAuthenticated) {
+          const response = await fetch(API_BASE + '/api/events?userId=' + userId + cacheBust(), { cache: 'no-store' });
+          if (response.status === 401) { handle401Error(); return; }
+          if (response.ok) events = await response.json();
+        } else {
+          // ローカルイベントを取得
+          const response = await fetch(API_BASE + '/api/local-events?userId=' + userId + cacheBust(), { cache: 'no-store' });
+          if (response.ok) events = await response.json();
+        }
       } catch (error) {
         console.error('Failed to load events:', error);
       }
@@ -2252,9 +3121,16 @@ export function generateLiffHtml(liffId, apiBase) {
 
     async function loadTasks() {
       try {
-        const response = await fetch(API_BASE + '/api/tasks?userId=' + userId + cacheBust(), { cache: 'no-store' });
-        if (response.status === 401) { handle401Error(); return; }
-        if (response.ok) tasks = await response.json();
+        // 同期設定に基づいてAPIを切り替え
+        if (googleTasksSync && isGoogleAuthenticated) {
+          const response = await fetch(API_BASE + '/api/tasks?userId=' + userId + cacheBust(), { cache: 'no-store' });
+          if (response.status === 401) { handle401Error(); return; }
+          if (response.ok) tasks = await response.json();
+        } else {
+          // ローカルタスクを取得
+          const response = await fetch(API_BASE + '/api/local-tasks?userId=' + userId + cacheBust(), { cache: 'no-store' });
+          if (response.ok) tasks = await response.json();
+        }
       } catch (error) {
         console.error('Failed to load tasks:', error);
       }
@@ -2262,9 +3138,15 @@ export function generateLiffHtml(liffId, apiBase) {
 
     async function loadTaskLists() {
       try {
-        const response = await fetch(API_BASE + '/api/tasklists?userId=' + userId + cacheBust(), { cache: 'no-store' });
-        if (response.status === 401) { handle401Error(); return; }
-        if (response.ok) taskLists = await response.json();
+        // Google同期がオンの場合のみGoogleタスクリストを取得
+        if (googleTasksSync && isGoogleAuthenticated) {
+          const response = await fetch(API_BASE + '/api/tasklists?userId=' + userId + cacheBust(), { cache: 'no-store' });
+          if (response.status === 401) { handle401Error(); return; }
+          if (response.ok) taskLists = await response.json();
+        } else {
+          // ローカルモードではデフォルトのリストを使用
+          taskLists = [{ id: 'local_default', title: 'マイタスク' }];
+        }
       } catch (error) {
         console.error('Failed to load task lists:', error);
       }
@@ -2322,9 +3204,16 @@ export function generateLiffHtml(liffId, apiBase) {
 
     async function loadCompletedTasks() {
       try {
-        const response = await fetch(API_BASE + '/api/tasks/completed?userId=' + userId + cacheBust(), { cache: 'no-store' });
-        if (response.status === 401) { handle401Error(); return; }
-        if (response.ok) completedTasks = await response.json();
+        // 同期設定に基づいてAPIを切り替え
+        if (googleTasksSync && isGoogleAuthenticated) {
+          const response = await fetch(API_BASE + '/api/tasks/completed?userId=' + userId + cacheBust(), { cache: 'no-store' });
+          if (response.status === 401) { handle401Error(); return; }
+          if (response.ok) completedTasks = await response.json();
+        } else {
+          // ローカル完了済みタスクを取得
+          const response = await fetch(API_BASE + '/api/local-tasks/completed?userId=' + userId + cacheBust(), { cache: 'no-store' });
+          if (response.ok) completedTasks = await response.json();
+        }
       } catch (error) {
         console.error('Failed to load completed tasks:', error);
       }
@@ -2692,7 +3581,71 @@ export function generateLiffHtml(liffId, apiBase) {
         document.getElementById('event-detail-calendar').textContent = 'マイカレンダー';
       }
 
+      // リマインダー（非同期で取得）
+      document.getElementById('event-detail-reminder-row').style.display = 'none';
+      fetchEventReminders(event.id, isShared);
+
       document.getElementById('event-detail-modal').classList.add('active');
+    }
+
+    async function fetchEventReminders(eventId, isShared) {
+      console.log('fetchEventReminders called:', { eventId, isShared, userId });
+      if (isShared) {
+        // 共有イベントはリマインダー非対応
+        console.log('Skipping shared event');
+        return;
+      }
+
+      try {
+        const url = API_BASE + '/api/event-reminders?userId=' + encodeURIComponent(userId) + '&eventId=' + encodeURIComponent(eventId);
+        console.log('Fetching reminders from:', url);
+        const response = await fetch(url);
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+          console.log('Response not ok');
+          return;
+        }
+
+        const reminderData = await response.json();
+        console.log('Reminder data:', reminderData);
+        if (!reminderData || !reminderData.reminders) {
+          console.log('No reminder data or reminders array');
+          return;
+        }
+
+        const reminders = reminderData.reminders;
+        const reminderTexts = [];
+
+        // プリセットリマインダー
+        if (reminders.includes('day_before')) {
+          reminderTexts.push('前日 18:00');
+        }
+        if (reminders.includes('morning')) {
+          reminderTexts.push('当日 8:00');
+        }
+        if (reminders.includes('1hour_before')) {
+          reminderTexts.push('1時間前');
+        }
+
+        // カスタムリマインダー
+        if (reminders.filter(r => typeof r === 'object' && r.type === 'custom').length > 0) {
+          reminders.filter(r => typeof r === 'object' && r.type === 'custom').forEach(r => {
+            const unitText = r.unit === 'minutes' ? '分前' : r.unit === 'hours' ? '時間前' : '日前';
+            let text = r.value + unitText;
+            if (r.time && r.unit === 'days') {
+              text = r.value + '日前 ' + r.time;
+            }
+            reminderTexts.push(text);
+          });
+        }
+
+        if (reminderTexts.length > 0) {
+          document.getElementById('event-detail-reminder').textContent = reminderTexts.join('、');
+          document.getElementById('event-detail-reminder-row').style.display = 'flex';
+        }
+      } catch (err) {
+        console.error('Failed to fetch event reminders:', err);
+      }
     }
 
     function closeEventDetailModal() {
@@ -2729,16 +3682,45 @@ export function generateLiffHtml(liffId, apiBase) {
       document.getElementById('event-url').value = urlLine || '';
       document.getElementById('event-memo').value = lines.filter(l => !l.startsWith('http')).join('\\n').trim();
 
-      // 編集時はリマインダーをリセット（既存のリマインダー設定は維持されるが新規追加不可）
+      // リマインダーをリセット
       document.getElementById('event-reminder-day-before').checked = false;
       document.getElementById('event-reminder-morning').checked = false;
       document.getElementById('event-reminder-1hour').checked = false;
       document.getElementById('event-reminder-1hour-option').style.display = isAllDay ? 'none' : 'flex';
 
+      // 既存のリマインダーを読み込んでチェックボックスに反映
+      loadEventRemindersForEdit(editingEvent.id, isShared);
+
       document.getElementById('event-submit').textContent = '更新';
       document.getElementById('event-submit').style.display = 'block';
       document.getElementById('event-delete').style.display = 'none';
       document.getElementById('event-modal').classList.add('active');
+    }
+
+    async function loadEventRemindersForEdit(eventId, isShared) {
+      if (isShared) return;
+
+      try {
+        const response = await fetch(API_BASE + '/api/event-reminders?userId=' + encodeURIComponent(userId) + '&eventId=' + encodeURIComponent(eventId));
+        if (!response.ok) return;
+
+        const reminderData = await response.json();
+        if (!reminderData || !reminderData.reminders) return;
+
+        const reminders = reminderData.reminders;
+
+        if (reminders.includes('day_before')) {
+          document.getElementById('event-reminder-day-before').checked = true;
+        }
+        if (reminders.includes('morning')) {
+          document.getElementById('event-reminder-morning').checked = true;
+        }
+        if (reminders.includes('1hour_before')) {
+          document.getElementById('event-reminder-1hour').checked = true;
+        }
+      } catch (err) {
+        console.error('Failed to load event reminders for edit:', err);
+      }
     }
 
     async function deleteEventFromDetail() {
@@ -2914,7 +3896,10 @@ export function generateLiffHtml(liffId, apiBase) {
           await loadSharedTasks();
           renderTasks();
         } else {
-          await fetch(API_BASE + '/api/tasks/complete', {
+          // ローカルタスクかGoogleタスクかで切り替え
+          const isLocalTask = task.id && task.id.startsWith('local_');
+          const apiEndpoint = isLocalTask ? '/api/local-tasks/complete' : '/api/tasks/complete';
+          await fetch(API_BASE + apiEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, taskId: task.id, listId: task.listId })
@@ -3024,7 +4009,10 @@ export function generateLiffHtml(liffId, apiBase) {
           await loadSharedTasks();
           await loadCompletedSharedTasks();
         } else {
-          await fetch(API_BASE + '/api/tasks/uncomplete', {
+          // ローカルタスクかGoogleタスクかで切り替え
+          const isLocalTask = task.id && task.id.startsWith('local_');
+          const apiEndpoint = isLocalTask ? '/api/local-tasks/uncomplete' : '/api/tasks/uncomplete';
+          await fetch(API_BASE + apiEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, taskId: task.id, listId: task.listId })
@@ -3054,15 +4042,35 @@ export function generateLiffHtml(liffId, apiBase) {
         btn.classList.toggle('active', btn.dataset.style === memoStyle);
       });
 
+      // 並び替えセレクトの状態を更新
+      const sortSelect = document.getElementById('memo-sort-select');
+      if (sortSelect) sortSelect.value = memoSort;
+
       // 検索フィルタリング
-      let filteredMemos = memos;
+      let filteredMemos = [...memos];
       if (memoSearchQuery) {
         const query = memoSearchQuery.toLowerCase();
-        filteredMemos = memos.filter(memo => {
+        filteredMemos = filteredMemos.filter(memo => {
           const text = (memo.text || '').toLowerCase();
           return text.includes(query);
         });
       }
+
+      // 並び替え
+      filteredMemos.sort((a, b) => {
+        switch (memoSort) {
+          case 'created_asc':
+            return new Date(a.createdAt) - new Date(b.createdAt);
+          case 'created_desc':
+            return new Date(b.createdAt) - new Date(a.createdAt);
+          case 'updated_asc':
+            return new Date(a.updatedAt) - new Date(b.updatedAt);
+          case 'updated_desc':
+            return new Date(b.updatedAt) - new Date(a.updatedAt);
+          default:
+            return new Date(b.createdAt) - new Date(a.createdAt);
+        }
+      });
 
       if (memos.length === 0) {
         container.innerHTML = '<div class="memo-empty"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><p>メモはまだありません</p><p style="font-size:12px;margin-top:8px;">+ボタンで追加できます</p></div>';
@@ -3081,7 +4089,9 @@ export function generateLiffHtml(liffId, apiBase) {
         const index = memos.indexOf(memo);
         const hasImage = !!memo.imageUrl;
         const hasText = !!memo.text;
-        const imageOnlyClass = (memoStyle === 'grid' && hasImage && !hasText) ? ' image-only' : '';
+        const hasAudio = !!memo.audioUrl;
+        const hasFile = !!memo.fileUrl;
+        const imageOnlyClass = (memoStyle === 'grid' && hasImage && !hasText && !hasAudio && !hasFile) ? ' image-only' : '';
 
         html += '<div class="memo-card' + imageOnlyClass + '" onclick="openMemoDetail(' + index + ')">';
 
@@ -3091,7 +4101,8 @@ export function generateLiffHtml(liffId, apiBase) {
             html += '<img class="memo-card-image" src="' + memo.imageUrl + '" alt="">';
           }
           html += '<div class="memo-card-content">';
-          html += '<div class="memo-card-text">' + (hasText ? escapeHtml(memo.text) : '画像メモ') + '</div>';
+          let displayText = hasText ? escapeHtml(memo.text) : (hasImage ? '画像メモ' : (hasAudio ? '🎤 ボイスメモ' : (hasFile ? '📎 ' + escapeHtml(memo.fileName || 'ファイル') : '')));
+          html += '<div class="memo-card-text">' + displayText + '</div>';
           html += '<div class="memo-card-date">' + formatMemoDate(memo.createdAt) + '</div>';
           html += '</div>';
         } else {
@@ -3102,6 +4113,25 @@ export function generateLiffHtml(liffId, apiBase) {
           html += '<div class="memo-card-content">';
           if (hasText) {
             html += '<div class="memo-card-text">' + escapeHtml(memo.text) + '</div>';
+          }
+          // 音声プレーヤー
+          if (hasAudio) {
+            html += '<div class="memo-audio-player" onclick="event.stopPropagation()">';
+            html += '<audio src="' + memo.audioUrl + '" controls></audio>';
+            if (memo.audioDuration) {
+              html += '<span class="memo-audio-duration">' + memo.audioDuration + '秒</span>';
+            }
+            html += '</div>';
+          }
+          // ファイル添付
+          if (hasFile) {
+            html += '<a href="' + memo.fileUrl + '" target="_blank" class="memo-file-attachment" onclick="event.stopPropagation()">';
+            html += '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>';
+            html += '<span class="memo-file-name">' + escapeHtml(memo.fileName || 'ファイル') + '</span>';
+            if (memo.fileSize) {
+              html += '<span class="memo-file-size">' + formatFileSize(memo.fileSize) + '</span>';
+            }
+            html += '</a>';
           }
           html += '<div class="memo-card-date">' + formatMemoDate(memo.createdAt) + '</div>';
           html += '</div>';
@@ -3117,6 +4147,12 @@ export function generateLiffHtml(liffId, apiBase) {
     function setMemoStyle(style) {
       memoStyle = style;
       localStorage.setItem('memoStyle', style);
+      renderMemos();
+    }
+
+    function changeMemoSort(sort) {
+      memoSort = sort;
+      localStorage.setItem('memoSort', sort);
       renderMemos();
     }
 
@@ -3139,6 +4175,159 @@ export function generateLiffHtml(liffId, apiBase) {
         return days + '日前';
       } else {
         return (date.getMonth() + 1) + '/' + date.getDate();
+      }
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // ファイル選択ハンドラー
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      // サイズチェック（10MB）
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('ファイルサイズは10MB以下にしてください');
+        event.target.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        selectedFileBase64 = e.target.result.split(',')[1];
+        selectedFileName = file.name;
+        selectedFileType = file.type || 'application/octet-stream';
+        selectedFileSize = file.size;
+
+        document.getElementById('selected-file-name').textContent = file.name;
+        document.getElementById('selected-file-size').textContent = formatFileSize(file.size);
+        document.getElementById('selected-file-info').classList.add('show');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearSelectedFile() {
+      selectedFileBase64 = null;
+      selectedFileName = null;
+      selectedFileType = null;
+      selectedFileSize = null;
+      const fileInfo = document.getElementById('selected-file-info');
+      const memoFile = document.getElementById('memo-file');
+      if (fileInfo) fileInfo.classList.remove('show');
+      if (memoFile) memoFile.value = '';
+    }
+
+    // 音声録音機能
+    async function toggleRecording() {
+      // LIFFアプリ内ではマイクが使えない場合がある
+      if (liff.isInClient()) {
+        showToast('LINEアプリ内では録音できません。LINEのトーク画面から音声メッセージを送信してください。');
+        return;
+      }
+
+      const btn = document.getElementById('record-btn');
+      const status = document.getElementById('record-status');
+      const timeDisplay = document.getElementById('record-time');
+
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        // 録音停止
+        mediaRecorder.stop();
+        btn.classList.remove('recording');
+        status.textContent = '録音完了';
+        clearInterval(recordingTimer);
+      } else {
+        // 録音開始
+        try {
+          // マイクが利用可能かチェック
+          if (!navigator.mediaDevices) {
+            showToast('このブラウザでは録音機能を利用できません（mediaDevices未対応）');
+            return;
+          }
+          if (!navigator.mediaDevices.getUserMedia) {
+            showToast('このブラウザでは録音機能を利用できません（getUserMedia未対応）');
+            return;
+          }
+
+          status.textContent = 'マイク許可を確認中...';
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+          // MediaRecorderが利用可能かチェック
+          if (typeof MediaRecorder === 'undefined') {
+            showToast('このブラウザでは録音機能を利用できません（MediaRecorder未対応）');
+            stream.getTracks().forEach(track => track.stop());
+            return;
+          }
+
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+              audioChunks.push(e.data);
+            }
+          };
+
+          mediaRecorder.onstop = () => {
+            recordedAudioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            recordedAudioDuration = Math.round((Date.now() - recordingStartTime) / 1000);
+            const audioUrl = URL.createObjectURL(recordedAudioBlob);
+            const audioPreview = document.getElementById('audio-preview');
+            const recordedAudio = document.getElementById('recorded-audio');
+            if (audioPreview) audioPreview.src = audioUrl;
+            if (recordedAudio) recordedAudio.classList.add('show');
+            stream.getTracks().forEach(track => track.stop());
+          };
+
+          mediaRecorder.onerror = (e) => {
+            console.error('MediaRecorder error:', e);
+            showToast('録音中にエラーが発生しました');
+          };
+
+          mediaRecorder.start();
+          btn.classList.add('recording');
+          recordingStartTime = Date.now();
+          status.textContent = '録音中...';
+          timeDisplay.classList.add('show');
+
+          recordingTimer = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+            const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const secs = String(elapsed % 60).padStart(2, '0');
+            timeDisplay.textContent = mins + ':' + secs;
+          }, 1000);
+        } catch (err) {
+          console.error('Microphone access error:', err);
+          status.textContent = 'タップして録音';
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            showToast('マイクへのアクセスを許可してください');
+          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            showToast('マイクが見つかりません');
+          } else if (err.name === 'NotSupportedError') {
+            showToast('このブラウザでは録音がサポートされていません');
+          } else if (err.name === 'SecurityError') {
+            showToast('セキュリティエラー: HTTPSが必要です');
+          } else {
+            showToast('録音エラー: ' + (err.name || '') + ' ' + (err.message || ''));
+          }
+        }
+      }
+    }
+
+    function clearRecordedAudio() {
+      recordedAudioBlob = null;
+      recordedAudioDuration = null;
+      const recordedAudio = document.getElementById('recorded-audio');
+      const recordStatus = document.getElementById('record-status');
+      const recordTime = document.getElementById('record-time');
+      if (recordedAudio) recordedAudio.classList.remove('show');
+      if (recordStatus) recordStatus.textContent = 'タップして録音';
+      if (recordTime) {
+        recordTime.textContent = '00:00';
+        recordTime.classList.remove('show');
       }
     }
 
@@ -3328,6 +4517,7 @@ export function generateLiffHtml(liffId, apiBase) {
     async function submitCreateProject() {
       const name = document.getElementById('project-name').value.trim();
       const description = document.getElementById('project-description').value.trim();
+      const editPermission = document.getElementById('project-edit-permission').value;
 
       if (!name) {
         showToast('カレンダー名を入力してください');
@@ -3338,7 +4528,7 @@ export function generateLiffHtml(liffId, apiBase) {
         const response = await fetch(API_BASE + '/api/projects', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, name, description, color: selectedProjectColor, isPersonal: isCreatingPersonalCalendar })
+          body: JSON.stringify({ userId, name, description, color: selectedProjectColor, isPersonal: isCreatingPersonalCalendar, editPermission })
         });
 
         if (response.ok) {
@@ -3558,6 +4748,7 @@ export function generateLiffHtml(liffId, apiBase) {
 
     async function submitCreateTaskList() {
       const name = document.getElementById('tasklist-name').value.trim();
+      const editPermission = document.getElementById('tasklist-edit-permission').value;
 
       if (!name) {
         showToast('リスト名を入力してください');
@@ -3568,7 +4759,7 @@ export function generateLiffHtml(liffId, apiBase) {
         const response = await fetch(API_BASE + '/api/shared-tasklists', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, name, color: selectedTaskListColor })
+          body: JSON.stringify({ userId, name, color: selectedTaskListColor, editPermission })
         });
 
         if (response.ok) {
@@ -3806,6 +4997,10 @@ export function generateLiffHtml(liffId, apiBase) {
       document.getElementById('event-reminder-morning').checked = false;
       document.getElementById('event-reminder-1hour').checked = false;
       document.getElementById('event-reminder-1hour-option').style.display = 'flex';
+      clearEventCustomReminders();
+      // 通知トグルの初期化（共有カレンダー選択時のみ表示）
+      document.getElementById('event-notify-group').style.display = 'none';
+      document.getElementById('event-notify-members').checked = false;
       document.getElementById('event-submit').textContent = '追加';
       document.getElementById('event-submit').style.display = 'block';
       document.getElementById('event-delete').style.display = 'none';
@@ -3830,10 +5025,15 @@ export function generateLiffHtml(liffId, apiBase) {
       // 時刻とリマインダーを表示
       document.getElementById('task-time-row').style.display = 'block';
       document.getElementById('task-reminder-group').style.display = 'block';
+      document.getElementById('task-reminder-display').style.display = 'none';
       document.getElementById('task-reminder-1week').checked = false;
       document.getElementById('task-reminder-3days').checked = false;
       document.getElementById('task-reminder-day-before').checked = false;
       document.getElementById('task-reminder-morning').checked = false;
+      clearTaskCustomReminders();
+      // 通知トグルの初期化（共有タスクリスト選択時のみ表示）
+      document.getElementById('task-notify-group').style.display = 'none';
+      document.getElementById('task-notify-members').checked = false;
 
       const select = document.getElementById('task-list-select');
       select.disabled = false;
@@ -3892,9 +5092,76 @@ export function generateLiffHtml(liffId, apiBase) {
         select.disabled = true;
       }
 
+      // リマインダー表示を取得（非同期）
+      document.getElementById('task-reminder-display').style.display = 'none';
+      fetchTaskReminders(task.id, isShared);
+
       document.getElementById('task-create-btns').style.display = 'none';
       document.getElementById('task-detail-btns').style.display = 'flex';
       document.getElementById('task-modal').classList.add('active');
+    }
+
+    async function fetchTaskReminders(taskId, isShared) {
+      console.log('fetchTaskReminders called:', { taskId, isShared, userId });
+      if (isShared) {
+        // 共有タスクはリマインダー非対応
+        console.log('Skipping shared task');
+        return;
+      }
+
+      try {
+        const url = API_BASE + '/api/task-reminders?userId=' + encodeURIComponent(userId) + '&taskId=' + encodeURIComponent(taskId);
+        console.log('Fetching task reminders from:', url);
+        const response = await fetch(url);
+        console.log('Task reminder response status:', response.status);
+        if (!response.ok) {
+          console.log('Task reminder response not ok');
+          return;
+        }
+
+        const reminderData = await response.json();
+        console.log('Task reminder data:', reminderData);
+        if (!reminderData || !reminderData.reminders) {
+          console.log('No task reminder data or reminders array');
+          return;
+        }
+
+        const reminders = reminderData.reminders;
+        const reminderTexts = [];
+
+        // プリセットリマインダー
+        if (reminders.includes('1week_before')) {
+          reminderTexts.push('1週間前');
+        }
+        if (reminders.includes('3days_before')) {
+          reminderTexts.push('3日前');
+        }
+        if (reminders.includes('day_before')) {
+          reminderTexts.push('前日 18:00');
+        }
+        if (reminders.includes('morning')) {
+          reminderTexts.push('当日 8:00');
+        }
+
+        // カスタムリマインダー
+        if (reminders.filter(r => typeof r === 'object' && r.type === 'custom').length > 0) {
+          reminders.filter(r => typeof r === 'object' && r.type === 'custom').forEach(r => {
+            const unitText = r.unit === 'minutes' ? '分前' : r.unit === 'hours' ? '時間前' : '日前';
+            let text = r.value + unitText;
+            if (r.time && r.unit === 'days') {
+              text = r.value + '日前 ' + r.time;
+            }
+            reminderTexts.push(text);
+          });
+        }
+
+        if (reminderTexts.length > 0) {
+          document.getElementById('task-reminder-text').textContent = reminderTexts.join('、');
+          document.getElementById('task-reminder-display').style.display = 'block';
+        }
+      } catch (err) {
+        console.error('Failed to fetch task reminders:', err);
+      }
     }
 
     async function completeTaskFromDetail() {
@@ -3922,7 +5189,10 @@ export function generateLiffHtml(liffId, apiBase) {
           return;
         }
 
-        await fetch(API_BASE + '/api/tasks/update', {
+        // ローカルタスクかGoogleタスクかで切り替え
+        const isLocalTask = editingTask.id && editingTask.id.startsWith('local_');
+        const apiEndpoint = isLocalTask ? '/api/local-tasks/update' : '/api/tasks/update';
+        await fetch(API_BASE + apiEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -3948,42 +5218,328 @@ export function generateLiffHtml(liffId, apiBase) {
       editingTask = null;
     }
 
+    function openHelpModal() {
+      document.getElementById('help-modal').classList.add('active');
+    }
+
+    function closeHelpModal() {
+      document.getElementById('help-modal').classList.remove('active');
+    }
+
+    // ==================== バックアップ機能 ====================
+
+    async function loadBackupSettings() {
+      try {
+        const response = await fetch(API_BASE + '/api/backup/settings?userId=' + encodeURIComponent(userId));
+        const data = await response.json();
+
+        document.getElementById('auto-backup-toggle').checked = data.autoBackupEnabled;
+
+        if (data.lastBackupTime) {
+          const date = new Date(data.lastBackupTime);
+          document.getElementById('last-backup-time').textContent =
+            '最終バックアップ: ' + date.toLocaleDateString('ja-JP') + ' ' + date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+        } else {
+          document.getElementById('last-backup-time').textContent = '最終バックアップ: なし';
+        }
+      } catch (err) {
+        console.error('Failed to load backup settings:', err);
+      }
+    }
+
+    async function toggleAutoBackup() {
+      const enabled = document.getElementById('auto-backup-toggle').checked;
+      try {
+        await fetch(API_BASE + '/api/backup/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, autoBackupEnabled: enabled })
+        });
+        showToast(enabled ? '自動バックアップをオンにしました' : '自動バックアップをオフにしました');
+      } catch (err) {
+        console.error('Failed to update auto backup setting:', err);
+        showToast('設定の更新に失敗しました');
+      }
+    }
+
+    async function createManualBackup() {
+      showToast('バックアップを作成中...');
+      try {
+        const response = await fetch(API_BASE + '/api/backup/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        const data = await response.json();
+        if (data.success) {
+          showToast('バックアップを作成しました');
+          loadBackupSettings();
+        } else {
+          showToast('バックアップの作成に失敗しました');
+        }
+      } catch (err) {
+        console.error('Failed to create backup:', err);
+        showToast('バックアップの作成に失敗しました');
+      }
+    }
+
+    async function openBackupListModal() {
+      document.getElementById('backup-list-modal').classList.add('active');
+      document.getElementById('backup-list-container').innerHTML =
+        '<div style="text-align:center;padding:32px;color:#999;">読み込み中...</div>';
+
+      try {
+        const response = await fetch(API_BASE + '/api/backup/list?userId=' + encodeURIComponent(userId));
+        const data = await response.json();
+
+        if (!data.backups || data.backups.length === 0) {
+          document.getElementById('backup-list-container').innerHTML =
+            '<div style="text-align:center;padding:32px;color:#999;">バックアップがありません</div>';
+          return;
+        }
+
+        let html = '<div class="backup-list">';
+        data.backups.forEach((backup, index) => {
+          const date = new Date(backup.timestamp);
+          const formattedDate = date.toLocaleDateString('ja-JP') + ' ' +
+            date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+          html += '<div class="backup-item" onclick="restoreBackup(' + "'" + backup.id + "'" + ')">';
+          html += '<div class="backup-date">' + formattedDate + '</div>';
+          html += '<div class="backup-info">';
+          html += '<span>予定: ' + backup.eventCount + '</span> | ';
+          html += '<span>タスク: ' + backup.taskCount + '</span> | ';
+          html += '<span>メモ: ' + backup.memoCount + '</span>';
+          if (backup.sharedCalendarCount > 0 || backup.sharedTaskListCount > 0) {
+            html += '<br><span>共有カレンダー: ' + (backup.sharedCalendarCount || 0) + '</span> | ';
+            html += '<span>共有リスト: ' + (backup.sharedTaskListCount || 0) + '</span>';
+          }
+          html += '</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+
+        document.getElementById('backup-list-container').innerHTML = html;
+      } catch (err) {
+        console.error('Failed to load backups:', err);
+        document.getElementById('backup-list-container').innerHTML =
+          '<div style="text-align:center;padding:32px;color:#f44336;">読み込みに失敗しました</div>';
+      }
+    }
+
+    function closeBackupListModal() {
+      document.getElementById('backup-list-modal').classList.remove('active');
+    }
+
+    async function restoreBackup(backupId) {
+      if (!confirm('このバックアップから復元しますか？\\n\\n現在のデータは上書きされます。\\n（復元前に自動でバックアップが作成されます）')) {
+        return;
+      }
+
+      showToast('復元中...');
+      try {
+        const response = await fetch(API_BASE + '/api/backup/restore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, backupId })
+        });
+        const data = await response.json();
+        if (data.success) {
+          showToast('復元しました');
+          closeBackupListModal();
+          // データを再読み込み
+          await loadEvents();
+          await loadTasks();
+          await loadMemos();
+        } else {
+          showToast('復元に失敗しました: ' + (data.error || ''));
+        }
+      } catch (err) {
+        console.error('Failed to restore backup:', err);
+        showToast('復元に失敗しました');
+      }
+    }
+
+    async function exportBackupAsJson() {
+      showToast('エクスポート中...');
+
+      try {
+        const exportUrl = API_BASE + '/api/backup/export?userId=' + encodeURIComponent(userId);
+        const response = await fetch(exportUrl);
+        const data = await response.json();
+        const jsonStr = JSON.stringify(data, null, 2);
+        const fileName = 'calendar-backup-' + new Date().toISOString().split('T')[0] + '.json';
+
+        // Web Share API が使える場合（iCloud, Google Driveなどに共有可能）
+        if (navigator.share && navigator.canShare) {
+          const file = new File([jsonStr], fileName, { type: 'application/json' });
+
+          if (navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                title: 'カレンダーバックアップ',
+                text: 'カレンダー・タスク・メモのバックアップデータ',
+                files: [file]
+              });
+              showToast('共有しました');
+              return;
+            } catch (shareErr) {
+              if (shareErr.name !== 'AbortError') {
+                console.log('Share failed, falling back to download:', shareErr);
+              } else {
+                return; // ユーザーがキャンセル
+              }
+            }
+          }
+        }
+
+        // Web Share APIが使えない場合はダウンロード
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('ダウンロードしました');
+      } catch (err) {
+        console.error('Export failed:', err);
+        showToast('エクスポートに失敗しました');
+      }
+    }
+
+    function triggerBackupImport() {
+      document.getElementById('backup-file-input').click();
+    }
+
+    async function importBackupFromJson(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (!confirm('このファイルからインポートしますか？\\n\\n既存のデータは上書きされます。')) {
+        event.target.value = '';
+        return;
+      }
+
+      showToast('インポート中...');
+
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        const response = await fetch(API_BASE + '/api/backup/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, data, merge: false })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          showToast('インポート完了: 予定' + result.result.events + '件, タスク' + result.result.tasks + '件, メモ' + result.result.memos + '件');
+          // データを再読み込み
+          await loadEvents();
+          await loadTasks();
+          await loadMemos();
+        } else {
+          showToast('インポートに失敗しました: ' + (result.error || ''));
+        }
+      } catch (err) {
+        console.error('Failed to import backup:', err);
+        showToast('インポートに失敗しました');
+      }
+
+      event.target.value = '';
+    }
+
     function openMemoModal() {
-      editingMemo = null;
-      selectedImageBase64 = null;
-      document.getElementById('memo-modal-title').textContent = 'メモを追加';
-      document.getElementById('memo-text').value = '';
-      document.getElementById('image-preview-container').classList.remove('has-image');
-      document.getElementById('memo-submit').textContent = '保存';
-      document.getElementById('memo-delete').style.display = 'none';
-      document.getElementById('memo-modal').classList.add('active');
+      try {
+        editingMemo = null;
+        selectedImageBase64 = null;
+        clearSelectedFile();
+        clearRecordedAudio();
+        document.getElementById('memo-modal-title').textContent = 'メモを追加';
+        document.getElementById('memo-text').value = '';
+        document.getElementById('image-preview-container').classList.remove('has-image');
+        document.getElementById('memo-submit').textContent = '保存';
+        document.getElementById('memo-delete').style.display = 'none';
+        // 既存の音声・ファイル表示を隠す
+        const existingAudio = document.getElementById('existing-audio');
+        const existingFile = document.getElementById('existing-file');
+        const fileAttachSection = document.getElementById('file-attach-section');
+        const voiceRecorder = document.getElementById('voice-recorder');
+        if (existingAudio) existingAudio.style.display = 'none';
+        if (existingFile) existingFile.style.display = 'none';
+        // 新規入力UIを表示
+        if (fileAttachSection) fileAttachSection.style.display = 'block';
+        if (voiceRecorder) voiceRecorder.style.display = 'flex';
+        document.getElementById('memo-modal').classList.add('active');
+      } catch (err) {
+        console.error('openMemoModal error:', err);
+        showToast('メモ作成画面を開けませんでした');
+      }
     }
 
     function openMemoDetail(index) {
-      const memo = memos[index];
-      if (!memo) return;
+      try {
+        const memo = memos[index];
+        if (!memo) return;
 
-      editingMemo = memo;
-      selectedImageBase64 = null;
-      document.getElementById('memo-modal-title').textContent = 'メモの詳細';
-      document.getElementById('memo-text').value = memo.text || '';
+        editingMemo = memo;
+        selectedImageBase64 = null;
+        clearSelectedFile();
+        clearRecordedAudio();
+        document.getElementById('memo-modal-title').textContent = 'メモの詳細';
+        document.getElementById('memo-text').value = memo.text || '';
 
-      if (memo.imageUrl) {
-        document.getElementById('image-preview').src = memo.imageUrl;
-        document.getElementById('image-preview-container').classList.add('has-image');
-      } else {
-        document.getElementById('image-preview-container').classList.remove('has-image');
+        if (memo.imageUrl) {
+          document.getElementById('image-preview').src = memo.imageUrl;
+          document.getElementById('image-preview-container').classList.add('has-image');
+        } else {
+          document.getElementById('image-preview-container').classList.remove('has-image');
+        }
+
+        // 既存の音声を表示
+        const existingAudio = document.getElementById('existing-audio');
+        const voiceRecorder = document.getElementById('voice-recorder');
+        if (memo.audioUrl) {
+          document.getElementById('existing-audio-player').src = memo.audioUrl;
+          document.getElementById('existing-audio-duration').textContent = memo.audioDuration ? memo.audioDuration + '秒' : '';
+          if (existingAudio) existingAudio.style.display = 'flex';
+          if (voiceRecorder) voiceRecorder.style.display = 'none';
+        } else {
+          if (existingAudio) existingAudio.style.display = 'none';
+          if (voiceRecorder) voiceRecorder.style.display = 'flex';
+        }
+
+        // 既存のファイルを表示
+        const existingFile = document.getElementById('existing-file');
+        const fileAttachSection = document.getElementById('file-attach-section');
+        if (memo.fileUrl) {
+          document.getElementById('existing-file-link').href = memo.fileUrl;
+          document.getElementById('existing-file-name').textContent = memo.fileName || 'ファイル';
+          if (existingFile) existingFile.style.display = 'block';
+          if (fileAttachSection) fileAttachSection.style.display = 'none';
+        } else {
+          if (existingFile) existingFile.style.display = 'none';
+          if (fileAttachSection) fileAttachSection.style.display = 'block';
+        }
+
+        document.getElementById('memo-submit').textContent = '更新';
+        document.getElementById('memo-delete').style.display = 'block';
+        document.getElementById('memo-modal').classList.add('active');
+      } catch (err) {
+        console.error('openMemoDetail error:', err);
+        showToast('メモを開けませんでした');
       }
-
-      document.getElementById('memo-submit').textContent = '更新';
-      document.getElementById('memo-delete').style.display = 'block';
-      document.getElementById('memo-modal').classList.add('active');
     }
 
     function closeMemoModal() {
       document.getElementById('memo-modal').classList.remove('active');
       editingMemo = null;
       selectedImageBase64 = null;
+      clearSelectedFile();
+      clearRecordedAudio();
     }
 
     function handleImageSelect(event) {
@@ -4007,6 +5563,140 @@ export function generateLiffHtml(liffId, apiBase) {
     }
 
     // ========================================
+    // カスタムリマインダー
+    // ========================================
+    let eventReminderCounter = 0;
+    let taskReminderCounter = 0;
+
+    function addEventCustomReminder() {
+      const container = document.getElementById('event-custom-reminders');
+      const emptyMsg = container.querySelector('.custom-reminder-empty');
+      if (emptyMsg) emptyMsg.remove();
+
+      const id = 'event-cr-' + (++eventReminderCounter);
+      const item = document.createElement('div');
+      item.className = 'custom-reminder-item';
+      item.id = id;
+      item.innerHTML = \`
+        <input type="number" min="1" max="999" value="30" class="cr-value">
+        <select class="cr-unit">
+          <option value="minutes">分前</option>
+          <option value="hours">時間前</option>
+          <option value="days">日前</option>
+        </select>
+        <select class="cr-time" style="display:none;">
+          <option value="09:00">9:00</option>
+          <option value="12:00">12:00</option>
+          <option value="18:00">18:00</option>
+          <option value="21:00">21:00</option>
+        </select>
+        <button type="button" class="custom-reminder-remove" onclick="removeCustomReminder('\${id}', 'event')">×</button>
+      \`;
+
+      // 単位が「日前」の場合は時刻選択を表示
+      const unitSelect = item.querySelector('.cr-unit');
+      const timeSelect = item.querySelector('.cr-time');
+      unitSelect.addEventListener('change', () => {
+        timeSelect.style.display = unitSelect.value === 'days' ? 'block' : 'none';
+      });
+
+      container.appendChild(item);
+      eventCustomReminders.push(id);
+    }
+
+    function addTaskCustomReminder() {
+      const container = document.getElementById('task-custom-reminders');
+      const emptyMsg = container.querySelector('.custom-reminder-empty');
+      if (emptyMsg) emptyMsg.remove();
+
+      const id = 'task-cr-' + (++taskReminderCounter);
+      const item = document.createElement('div');
+      item.className = 'custom-reminder-item';
+      item.id = id;
+      item.innerHTML = \`
+        <input type="number" min="1" max="999" value="1" class="cr-value">
+        <select class="cr-unit">
+          <option value="days" selected>日前</option>
+          <option value="hours">時間前</option>
+        </select>
+        <select class="cr-time">
+          <option value="09:00">9:00</option>
+          <option value="12:00">12:00</option>
+          <option value="18:00" selected>18:00</option>
+          <option value="21:00">21:00</option>
+        </select>
+        <button type="button" class="custom-reminder-remove" onclick="removeCustomReminder('\${id}', 'task')">×</button>
+      \`;
+
+      // 単位が「時間前」の場合は時刻選択を非表示
+      const unitSelect = item.querySelector('.cr-unit');
+      const timeSelect = item.querySelector('.cr-time');
+      unitSelect.addEventListener('change', () => {
+        timeSelect.style.display = unitSelect.value === 'days' ? 'block' : 'none';
+      });
+
+      container.appendChild(item);
+      taskCustomReminders.push(id);
+    }
+
+    function removeCustomReminder(id, type) {
+      const item = document.getElementById(id);
+      if (item) item.remove();
+
+      if (type === 'event') {
+        eventCustomReminders = eventCustomReminders.filter(rid => rid !== id);
+        if (eventCustomReminders.length === 0) {
+          document.getElementById('event-custom-reminders').innerHTML = '<div class="custom-reminder-empty">カスタムリマインダーなし</div>';
+        }
+      } else {
+        taskCustomReminders = taskCustomReminders.filter(rid => rid !== id);
+        if (taskCustomReminders.length === 0) {
+          document.getElementById('task-custom-reminders').innerHTML = '<div class="custom-reminder-empty">カスタムリマインダーなし</div>';
+        }
+      }
+    }
+
+    function getEventCustomReminders() {
+      const reminders = [];
+      eventCustomReminders.forEach(id => {
+        const item = document.getElementById(id);
+        if (item) {
+          const value = parseInt(item.querySelector('.cr-value').value) || 1;
+          const unit = item.querySelector('.cr-unit').value;
+          const time = item.querySelector('.cr-time').value;
+          reminders.push({ type: 'custom', value, unit, time });
+        }
+      });
+      return reminders;
+    }
+
+    function getTaskCustomReminders() {
+      const reminders = [];
+      taskCustomReminders.forEach(id => {
+        const item = document.getElementById(id);
+        if (item) {
+          const value = parseInt(item.querySelector('.cr-value').value) || 1;
+          const unit = item.querySelector('.cr-unit').value;
+          const time = item.querySelector('.cr-time').value;
+          reminders.push({ type: 'custom', value, unit, time });
+        }
+      });
+      return reminders;
+    }
+
+    function clearEventCustomReminders() {
+      eventCustomReminders = [];
+      eventReminderCounter = 0;
+      document.getElementById('event-custom-reminders').innerHTML = '<div class="custom-reminder-empty">カスタムリマインダーなし</div>';
+    }
+
+    function clearTaskCustomReminders() {
+      taskCustomReminders = [];
+      taskReminderCounter = 0;
+      document.getElementById('task-custom-reminders').innerHTML = '<div class="custom-reminder-empty">カスタムリマインダーなし</div>';
+    }
+
+    // ========================================
     // API呼び出し
     // ========================================
     async function submitEvent() {
@@ -4025,6 +5715,9 @@ export function generateLiffHtml(liffId, apiBase) {
       if (document.getElementById('event-reminder-day-before').checked) reminders.push('day_before');
       if (document.getElementById('event-reminder-morning').checked) reminders.push('morning');
       if (!isAllDay && document.getElementById('event-reminder-1hour').checked) reminders.push('1hour_before');
+      // カスタムリマインダーを追加
+      const customReminders = getEventCustomReminders();
+      customReminders.forEach(cr => reminders.push(cr));
 
       if (!title || !date) {
         showToast('タイトルと日付を入力してください');
@@ -4038,26 +5731,46 @@ export function generateLiffHtml(liffId, apiBase) {
       try {
         if (projectId) {
           // 共有カレンダーに追加
+          const notifyMembers = document.getElementById('event-notify-members').checked;
           await fetch(API_BASE + '/api/shared-events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, projectId, title, date, isAllDay, startTime: isAllDay ? null : startTime, endTime: isAllDay ? null : endTime, location, url, memo, reminders })
+            body: JSON.stringify({ userId, projectId, title, date, isAllDay, startTime: isAllDay ? null : startTime, endTime: isAllDay ? null : endTime, location, url, memo, reminders, notifyMembers })
           });
           await loadSharedEvents();
         } else {
-          // 個人のGoogleカレンダーに追加
-          const response = await fetch(API_BASE + '/api/events', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, title, date, isAllDay, startTime, endTime, location, url, memo, reminders })
-          });
-          if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error || '予定の作成に失敗しました');
+          // 編集モードかどうかをチェック
+          const isEditing = editingEvent && !editingEvent._isShared;
+          const isLocalEvent = isEditing && editingEvent.id && editingEvent.id.startsWith('local_');
+
+          if (isEditing) {
+            // 更新処理
+            const apiEndpoint = isLocalEvent ? '/api/local-events' : '/api/events';
+            const response = await fetch(API_BASE + apiEndpoint, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, eventId: editingEvent.id, title, date, isAllDay, startTime, endTime, location, url, memo, reminders })
+            });
+            if (!response.ok) {
+              const err = await response.json();
+              throw new Error(err.error || '予定の更新に失敗しました');
+            }
+          } else {
+            // 新規作成
+            const apiEndpoint = (googleCalendarSync && isGoogleAuthenticated) ? '/api/events' : '/api/local-events';
+            const response = await fetch(API_BASE + apiEndpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, title, date, isAllDay, startTime, endTime, location, url, memo, reminders })
+            });
+            if (!response.ok) {
+              const err = await response.json();
+              throw new Error(err.error || '予定の作成に失敗しました');
+            }
           }
           await loadEvents();
         }
-        showToast('予定を追加しました');
+        showToast(editingEvent ? '予定を更新しました' : '予定を追加しました');
         closeEventModal();
         renderCalendar();
       } catch (error) {
@@ -4086,8 +5799,10 @@ export function generateLiffHtml(liffId, apiBase) {
           });
           await loadSharedEvents();
         } else {
-          // 個人カレンダーの予定を削除
-          await fetch(API_BASE + '/api/events', {
+          // 同期設定に基づいてAPIを切り替え（ローカルイベントはIDがlocal_で始まる）
+          const isLocalEvent = editingEvent.id && editingEvent.id.startsWith('local_');
+          const apiEndpoint = isLocalEvent ? '/api/local-events' : '/api/events';
+          await fetch(API_BASE + apiEndpoint, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, eventId: editingEvent.id })
@@ -4117,6 +5832,9 @@ export function generateLiffHtml(liffId, apiBase) {
       if (document.getElementById('task-reminder-3days').checked) reminders.push('3days_before');
       if (document.getElementById('task-reminder-day-before').checked) reminders.push('day_before');
       if (document.getElementById('task-reminder-morning').checked) reminders.push('morning');
+      // カスタムリマインダーを追加
+      const customReminders = getTaskCustomReminders();
+      customReminders.forEach(cr => reminders.push(cr));
 
       // 時刻付き期限の作成
       let due = null;
@@ -4140,16 +5858,18 @@ export function generateLiffHtml(liffId, apiBase) {
         if (listValue.startsWith('shared_')) {
           // 共有タスクリストに追加
           const listId = listValue.replace('shared_', '');
+          const notifyMembers = document.getElementById('task-notify-members').checked;
           await fetch(API_BASE + '/api/shared-tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, listId, title, due })
+            body: JSON.stringify({ userId, listId, title, due, notifyMembers })
           });
           await loadSharedTasks();
         } else {
-          // Googleタスクに追加
+          // 同期設定に基づいてAPIを切り替え
           const listName = listValue.replace('google_', '');
-          await fetch(API_BASE + '/api/tasks', {
+          const apiEndpoint = (googleTasksSync && isGoogleAuthenticated) ? '/api/tasks' : '/api/local-tasks';
+          await fetch(API_BASE + apiEndpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, title, due, listName, reminders })
@@ -4182,7 +5902,10 @@ export function generateLiffHtml(liffId, apiBase) {
           closeTaskModal();
           await loadSharedTasks();
         } else {
-          await fetch(API_BASE + '/api/tasks', {
+          // ローカルタスクかGoogleタスクかで切り替え
+          const isLocalTask = editingTask.id && editingTask.id.startsWith('local_');
+          const apiEndpoint = isLocalTask ? '/api/local-tasks' : '/api/tasks';
+          await fetch(API_BASE + apiEndpoint, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, taskId: editingTask.id, listId: editingTask.listId })
@@ -4201,8 +5924,14 @@ export function generateLiffHtml(liffId, apiBase) {
     async function submitMemo() {
       const text = document.getElementById('memo-text').value.trim();
 
-      if (!text && !selectedImageBase64) {
-        showToast('テキストまたは画像を入力してください');
+      // 音声データをBase64に変換
+      let audioBase64 = null;
+      if (recordedAudioBlob) {
+        audioBase64 = await blobToBase64(recordedAudioBlob);
+      }
+
+      if (!text && !selectedImageBase64 && !selectedFileBase64 && !audioBase64) {
+        showToast('テキスト、画像、ファイル、または音声を入力してください');
         return;
       }
 
@@ -4211,10 +5940,30 @@ export function generateLiffHtml(liffId, apiBase) {
       btn.textContent = '保存中...';
 
       try {
+        const payload = {
+          userId,
+          text,
+          imageBase64: selectedImageBase64
+        };
+
+        // ファイル添付
+        if (selectedFileBase64) {
+          payload.fileBase64 = selectedFileBase64;
+          payload.fileName = selectedFileName;
+          payload.fileType = selectedFileType;
+          payload.fileSize = selectedFileSize;
+        }
+
+        // 音声
+        if (audioBase64) {
+          payload.audioBase64 = audioBase64;
+          payload.audioDuration = recordedAudioDuration;
+        }
+
         const response = await fetch(API_BASE + '/api/memos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, text, imageBase64: selectedImageBase64 })
+          body: JSON.stringify(payload)
         });
         if (!response.ok) {
           const err = await response.json();
@@ -4231,6 +5980,19 @@ export function generateLiffHtml(liffId, apiBase) {
         btn.disabled = false;
         btn.textContent = '保存';
       }
+    }
+
+    // BlobをBase64に変換
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
     }
 
     async function deleteMemoItem() {
@@ -4255,6 +6017,114 @@ export function generateLiffHtml(liffId, apiBase) {
         showToast('エラーが発生しました');
       } finally {
         btn.disabled = false;
+      }
+    }
+
+    // ========================================
+    // 同期設定
+    // ========================================
+    async function loadSyncSettings() {
+      try {
+        const response = await fetch(API_BASE + '/api/sync-settings?userId=' + userId);
+        if (response.ok) {
+          const settings = await response.json();
+          googleCalendarSync = settings.googleCalendarSync || false;
+          googleTasksSync = settings.googleTasksSync || false;
+        }
+      } catch (error) {
+        console.error('Failed to load sync settings:', error);
+      }
+    }
+
+    async function saveSyncSettings() {
+      try {
+        await fetch(API_BASE + '/api/sync-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            googleCalendarSync,
+            googleTasksSync
+          })
+        });
+      } catch (error) {
+        console.error('Failed to save sync settings:', error);
+      }
+    }
+
+    function initSyncSettings() {
+      const calendarToggle = document.getElementById('google-calendar-sync-toggle');
+      const tasksToggle = document.getElementById('google-tasks-sync-toggle');
+      const statusMessage = document.getElementById('sync-status-message');
+
+      calendarToggle.checked = googleCalendarSync;
+      tasksToggle.checked = googleTasksSync;
+
+      calendarToggle.onchange = async function() {
+        const wantsSync = this.checked;
+
+        if (wantsSync && !isGoogleAuthenticated) {
+          // 認証されていない場合は認証を促す
+          this.checked = false;
+          statusMessage.style.display = 'block';
+          statusMessage.innerHTML = 'Googleカレンダー同期を有効にするには、<a href="#" onclick="openGoogleAuth(); return false;" style="color:var(--primary);">Google連携</a>が必要です';
+          return;
+        }
+
+        googleCalendarSync = wantsSync;
+        await saveSyncSettings();
+
+        // データを再読み込み
+        await loadEvents();
+        renderCalendar();
+
+        statusMessage.style.display = 'block';
+        if (wantsSync) {
+          statusMessage.textContent = 'Googleカレンダーと同期中...';
+          setTimeout(() => { statusMessage.style.display = 'none'; }, 2000);
+        } else {
+          statusMessage.textContent = 'ローカル保存モードに切り替えました';
+          setTimeout(() => { statusMessage.style.display = 'none'; }, 2000);
+        }
+
+        showToast(wantsSync ? 'Googleカレンダー同期をオンにしました' : 'ローカル保存に切り替えました');
+      };
+
+      tasksToggle.onchange = async function() {
+        const wantsSync = this.checked;
+
+        if (wantsSync && !isGoogleAuthenticated) {
+          // 認証されていない場合は認証を促す
+          this.checked = false;
+          statusMessage.style.display = 'block';
+          statusMessage.innerHTML = 'Googleタスク同期を有効にするには、<a href="#" onclick="openGoogleAuth(); return false;" style="color:var(--primary);">Google連携</a>が必要です';
+          return;
+        }
+
+        googleTasksSync = wantsSync;
+        await saveSyncSettings();
+
+        // データを再読み込み
+        await Promise.all([loadTasks(), loadTaskLists()]);
+        renderTasks();
+        renderTaskLists();
+
+        statusMessage.style.display = 'block';
+        if (wantsSync) {
+          statusMessage.textContent = 'Googleタスクと同期中...';
+          setTimeout(() => { statusMessage.style.display = 'none'; }, 2000);
+        } else {
+          statusMessage.textContent = 'ローカル保存モードに切り替えました';
+          setTimeout(() => { statusMessage.style.display = 'none'; }, 2000);
+        }
+
+        showToast(wantsSync ? 'Googleタスク同期をオンにしました' : 'ローカル保存に切り替えました');
+      };
+
+      // 同期オフの場合、メッセージを表示
+      if (!googleCalendarSync && !googleTasksSync) {
+        statusMessage.style.display = 'block';
+        statusMessage.textContent = 'データはローカルに保存されます';
       }
     }
 
@@ -4290,14 +6160,23 @@ export function generateLiffHtml(liffId, apiBase) {
     function updateAuthDisplay() {
       const authBanner = document.getElementById('auth-banner');
       const googleAuthValue = document.getElementById('google-auth-value');
+      const revokeBtn = document.getElementById('google-auth-revoke-btn');
 
       if (isGoogleAuthenticated) {
         authBanner.classList.remove('show');
         document.body.classList.remove('needs-auth');
         googleAuthValue.innerHTML = '<span style="color:var(--primary);">✓ 連携済み</span>';
+        if (revokeBtn) revokeBtn.style.display = 'inline';
       } else {
-        authBanner.classList.add('show');
-        document.body.classList.add('needs-auth');
+        if (revokeBtn) revokeBtn.style.display = 'none';
+        // 同期がオフの場合はバナーを表示しない（ローカル保存モードなので認証不要）
+        if (googleCalendarSync || googleTasksSync) {
+          authBanner.classList.add('show');
+          document.body.classList.add('needs-auth');
+        } else {
+          authBanner.classList.remove('show');
+          document.body.classList.remove('needs-auth');
+        }
         if (googleAuthUrl) {
           googleAuthValue.innerHTML = '<button onclick="openGoogleAuth()" style="color:#ff9800;background:none;border:none;text-decoration:underline;font-size:inherit;cursor:pointer;">連携する</button>';
         } else {
@@ -4322,6 +6201,51 @@ export function generateLiffHtml(liffId, apiBase) {
             });
           }
         });
+      }
+    }
+
+    async function revokeGoogleAuth() {
+      if (!confirm('Google連携を解除しますか？\\n\\n解除すると同期設定もオフになり、ローカル保存モードに切り替わります。')) {
+        return;
+      }
+
+      try {
+        showToast('連携を解除中...');
+        const response = await fetch(API_BASE + '/api/auth-revoke', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+
+        if (response.ok) {
+          // 状態を更新
+          isGoogleAuthenticated = false;
+          googleCalendarSync = false;
+          googleTasksSync = false;
+
+          // UIを更新
+          document.getElementById('google-calendar-sync-toggle').checked = false;
+          document.getElementById('google-tasks-sync-toggle').checked = false;
+          const statusMessage = document.getElementById('sync-status-message');
+          statusMessage.style.display = 'block';
+          statusMessage.textContent = 'データはローカルに保存されます';
+
+          // 認証URLを再取得
+          await getGoogleAuthUrl();
+          updateAuthDisplay();
+
+          // ローカルデータを読み込み
+          await Promise.all([loadEvents(), loadTasks(), loadTaskLists()]);
+          renderCalendar();
+          renderTasks();
+
+          showToast('Google連携を解除しました');
+        } else {
+          throw new Error('連携解除に失敗しました');
+        }
+      } catch (error) {
+        console.error('Failed to revoke auth:', error);
+        showToast('エラーが発生しました');
       }
     }
 
@@ -4472,6 +6396,18 @@ export function generateLiffHtml(liffId, apiBase) {
       }
     });
 
+    // カレンダー選択変更時のハンドラー（共有カレンダー選択時に通知トグル表示）
+    document.getElementById('event-calendar').addEventListener('change', (e) => {
+      const isSharedCalendar = e.target.value !== '';
+      document.getElementById('event-notify-group').style.display = isSharedCalendar ? 'block' : 'none';
+    });
+
+    // タスクリスト選択変更時のハンドラー（共有タスクリスト選択時に通知トグル表示）
+    document.getElementById('task-list-select').addEventListener('change', (e) => {
+      const isSharedList = e.target.value.startsWith('shared_');
+      document.getElementById('task-notify-group').style.display = isSharedList ? 'block' : 'none';
+    });
+
     // タスク期限日付変更時のハンドラー（change + input 両方で確実に発火）
     function handleTaskDueChange() {
       const hasDate = document.getElementById('task-due').value !== '';
@@ -4523,6 +6459,8 @@ export function generateLiffHtml(liffId, apiBase) {
         showToast('設定の更新に失敗しました');
       }
     });
+
+    document.getElementById('auto-backup-toggle').addEventListener('change', toggleAutoBackup);
 
     async function loadNotificationSettings() {
       try {

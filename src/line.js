@@ -90,3 +90,29 @@ export async function replyLineMessage(replyToken, message, accessToken) {
 
   return await response.json();
 }
+
+/**
+ * LINE Bot APIからメッセージコンテンツを取得
+ * @param {string} messageId - メッセージID
+ * @param {string} channelAccessToken - チャンネルアクセストークン
+ * @returns {Promise<{buffer: Buffer, contentType: string}>}
+ */
+export async function getMessageContent(messageId, channelAccessToken) {
+  const response = await fetch(
+    `https://api-data.line.me/v2/bot/message/${messageId}/content`,
+    {
+      headers: {
+        'Authorization': `Bearer ${channelAccessToken}`
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to get message content: ${response.status}`);
+  }
+
+  return {
+    buffer: Buffer.from(await response.arrayBuffer()),
+    contentType: response.headers.get('content-type')
+  };
+}

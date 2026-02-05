@@ -19,6 +19,8 @@ export const env = {
   OAUTH_REDIRECT_URI: process.env.OAUTH_REDIRECT_URI,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   LIFF_ID: process.env.LIFF_ID,
+  ADMIN_USER_ID: process.env.ADMIN_USER_ID,
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
 
   // KV Namespace 互換オブジェクト
   NOTIFICATIONS: {

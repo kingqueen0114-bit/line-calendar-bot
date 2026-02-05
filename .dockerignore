@@ -1,5 +1,6 @@
 node_modules
 npm-debug.log
+ktrend_migration
 .env
 .env.local
 .wrangler

@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Large migration folder
+ktrend_migration/
+
+# Build files
+.wrangler/
+
+# Logs
+*.log
+npm-debug.log
+
+# Environment files
+.env
+.env.local
+
+# Git
+.git/
+.gitignore
+
+# Config files not needed for deployment
+wrangler.toml
+wrangler.test.toml
+cloudbuild.yaml
+.dockerignore
+.gcloudignore
+
+# Setup and documentation
+setup-*.cjs
+setup-*.js
+*.md
+
+# Rich menu assets
+rich-menu*.html
+rich-menu*.json
+richmenu*.png
+rich-menu-image.png
+
+# LIFF standalone folder
+liff/
+
+# MCP config
+.mcp.json

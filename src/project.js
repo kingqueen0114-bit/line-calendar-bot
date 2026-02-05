@@ -23,6 +23,7 @@ export async function createProject(projectData, userId, env) {
     members: [userId],
     isPersonal,
     inviteCode,
+    editPermission: projectData.editPermission || 'all', // 'owner' or 'all'
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -73,6 +74,10 @@ export async function updateProject(projectId, updates, userId, env) {
   if (updates.name) project.name = updates.name;
   if (updates.color) project.color = updates.color;
   if (updates.description !== undefined) project.description = updates.description;
+  // editPermissionはオーナーのみ変更可能
+  if (updates.editPermission !== undefined && project.ownerId === userId) {
+    project.editPermission = updates.editPermission;
+  }
 
   project.updatedAt = new Date().toISOString();
 
@@ -241,6 +246,33 @@ export async function getProjectMembers(projectId, env) {
   }
 
   return members;
+}
+
+/**
+ * ユーザーがプロジェクトのコンテンツを編集できるかチェック
+ * @param {string} projectId - プロジェクトID
+ * @param {string} userId - ユーザーID
+ * @param {object} env - 環境オブジェクト
+ * @returns {Promise<boolean>} - 編集可能かどうか
+ */
+export async function canUserEditProject(projectId, userId, env) {
+  const project = await getProject(projectId, env);
+  if (!project) {
+    return false;
+  }
+
+  // メンバーでない場合は編集不可
+  if (!project.members.includes(userId)) {
+    return false;
+  }
+
+  // オーナーは常に編集可能
+  if (project.ownerId === userId) {
+    return true;
+  }
+
+  // editPermissionに基づいて判定
+  return project.editPermission === 'all';
 }
 
 // ヘルパー関数
