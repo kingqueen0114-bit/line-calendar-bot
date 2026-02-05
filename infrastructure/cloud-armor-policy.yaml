@@ -1,0 +1,96 @@
+# Cloud Armor Security Policy for LINE Calendar Bot
+# Deploy with: gcloud compute security-policies import line-calendar-bot-policy --source=infrastructure/cloud-armor-policy.yaml
+
+description: Security policy for LINE Calendar Bot
+type: CLOUD_ARMOR
+
+# デフォルトルール（許可）
+rules:
+  # SQL インジェクション対策
+  - action: deny(403)
+    description: Block SQL injection attacks
+    match:
+      expr:
+        expression: "evaluatePreconfiguredExpr('sqli-v33-stable')"
+    priority: 1000
+
+  # XSS 攻撃対策
+  - action: deny(403)
+    description: Block XSS attacks
+    match:
+      expr:
+        expression: "evaluatePreconfiguredExpr('xss-v33-stable')"
+    priority: 1001
+
+  # Local File Inclusion (LFI) 対策
+  - action: deny(403)
+    description: Block LFI attacks
+    match:
+      expr:
+        expression: "evaluatePreconfiguredExpr('lfi-v33-stable')"
+    priority: 1002
+
+  # Remote File Inclusion (RFI) 対策
+  - action: deny(403)
+    description: Block RFI attacks
+    match:
+      expr:
+        expression: "evaluatePreconfiguredExpr('rfi-v33-stable')"
+    priority: 1003
+
+  # Protocol Attack 対策
+  - action: deny(403)
+    description: Block protocol attacks
+    match:
+      expr:
+        expression: "evaluatePreconfiguredExpr('protocolattack-v33-stable')"
+    priority: 1004
+
+  # Session Fixation 対策
+  - action: deny(403)
+    description: Block session fixation attacks
+    match:
+      expr:
+        expression: "evaluatePreconfiguredExpr('sessionfixation-v33-stable')"
+    priority: 1005
+
+  # Scanner 検出対策
+  - action: deny(403)
+    description: Block scanner detection
+    match:
+      expr:
+        expression: "evaluatePreconfiguredExpr('scannerdetection-v33-stable')"
+    priority: 1006
+
+  # 日本以外からの高リスクIPをレート制限
+  - action: throttle
+    description: Rate limit non-Japan traffic
+    match:
+      expr:
+        expression: "origin.region_code != 'JP'"
+    priority: 2000
+    rateLimitOptions:
+      conformAction: allow
+      exceedAction: deny(429)
+      enforceOnKey: IP
+      rateLimitThreshold:
+        count: 100
+        intervalSec: 60
+
+  # LINE サーバーからのアクセスを許可
+  - action: allow
+    description: Allow LINE Messaging API servers
+    match:
+      expr:
+        expression: "origin.asn == 23576"  # LINE Corporation ASN
+    priority: 100
+
+  # デフォルト許可
+  - action: allow
+    description: Default rule (allow)
+    match:
+      versionedExpr: SRC_IPS_V1
+      config:
+        srcIpRanges:
+          - '*'
+    priority: 2147483647

@@ -4,9 +4,21 @@
 import express from 'express';
 import crypto from 'crypto';
 import { handleWebhook, runScheduledTask } from './app.js';
+import {
+  rateLimit,
+  securityHeaders,
+  corsHandler,
+  requestLogger,
+  validateInput
+} from './security.js';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// セキュリティミドルウェア
+app.use(requestLogger());
+app.use(securityHeaders());
+app.use(corsHandler());
 
 // JSONボディの解析（生のボディも保持、画像Base64用に50MBまで許可）
 app.use(express.json({
@@ -15,6 +27,14 @@ app.use(express.json({
     req.rawBody = buf;
   }
 }));
+
+// 入力検証
+app.use(validateInput());
+
+// ルート別レート制限
+app.use('/api/auth', rateLimit('auth'));
+app.use('/api', rateLimit('api'));
+app.use('/liff', rateLimit('liff'));
 
 // ヘルスチェック
 app.get('/', (req, res) => {
@@ -1770,8 +1790,8 @@ app.options('/api/*', (req, res) => {
   res.sendStatus(204);
 });
 
-// LINE Webhook
-app.post('/', async (req, res) => {
+// LINE Webhook（レート制限付き）
+app.post('/', rateLimit('webhook'), async (req, res) => {
   console.log('=== WEBHOOK RECEIVED ===');
   console.log('Webhook body:', JSON.stringify(req.body));
   try {
