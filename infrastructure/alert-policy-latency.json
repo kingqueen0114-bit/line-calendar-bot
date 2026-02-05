@@ -1,0 +1,34 @@
+{
+  "displayName": "LINE Calendar Bot - High Latency",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "P99 Latency > 5s",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"line-calendar-bot\" AND metric.type=\"run.googleapis.com/request_latencies\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_PERCENTILE_99"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 5000,
+        "duration": "300s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "notificationChannels": [
+    "projects/line-calendar-bot-20260203/notificationChannels/8730598152781979073"
+  ],
+  "alertStrategy": {
+    "autoClose": "604800s"
+  },
+  "documentation": {
+    "content": "LINE Calendar Botのレイテンシが5秒を超えました。パフォーマンスを確認してください。",
+    "mimeType": "text/markdown"
+  }
+}

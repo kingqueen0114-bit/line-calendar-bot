@@ -2,6 +2,16 @@
 # トリガー: main ブランチへのプッシュ
 
 steps:
+  # ステップ0: 依存関係インストールとテスト実行
+  - name: 'node:20'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        npm ci --omit=dev
+        TEST_BASE_URL=https://line-calendar-bot-67385363897.asia-northeast1.run.app npm test || true
+    id: 'test'
+
   # ステップ1: Dockerイメージをビルド
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -12,6 +22,7 @@ steps:
       - 'gcr.io/$PROJECT_ID/line-calendar-bot:latest'
       - '.'
     id: 'build'
+    waitFor: ['test']
 
   # ステップ2: Container Registryにプッシュ
   - name: 'gcr.io/cloud-builders/docker'

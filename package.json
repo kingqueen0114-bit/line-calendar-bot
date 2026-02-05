@@ -8,7 +8,9 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "deploy:cloudflare": "wrangler deploy",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node tests/integration.test.js",
+    "test:local": "TEST_BASE_URL=http://localhost:8080 node tests/integration.test.js",
+    "test:prod": "TEST_BASE_URL=https://line-calendar-bot-67385363897.asia-northeast1.run.app node tests/integration.test.js"
   },
   "keywords": [
     "line",
