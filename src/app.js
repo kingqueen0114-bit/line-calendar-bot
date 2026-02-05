@@ -180,6 +180,96 @@ async function handleFollowEvent(event, env) {
   console.log('Welcome message sent to user:', userId);
 }
 
+// Dev Agent コマンド処理
+const DEV_AGENT_URL = process.env.DEV_AGENT_URL || 'http://35.221.93.66:8080';
+
+async function handleDevAgentCommand(message, env) {
+  const text = message.trim().toLowerCase();
+
+  // 状況確認
+  if (text === '状況' || text === 'status' || text === 'ステータス' || text === 'dev状況') {
+    try {
+      const res = await fetch(`${DEV_AGENT_URL}/`);
+      const data = await res.json();
+      return `📊 Dev Agent 状況\n\n` +
+        `状態: ${data.processing ? '処理中' : '待機中'}\n` +
+        `プロジェクト: ${data.projects}件\n` +
+        `保留タスク: ${data.pendingTasks}件`;
+    } catch (error) {
+      return `❌ Dev Agent接続エラー`;
+    }
+  }
+
+  // プロジェクト一覧
+  if (text === 'devプロジェクト' || text === 'dev projects') {
+    try {
+      const res = await fetch(`${DEV_AGENT_URL}/api/projects`);
+      const data = await res.json();
+      if (data.projects.length === 0) return '📁 プロジェクトなし';
+      let msg = `📁 プロジェクト (${data.count}件)\n\n`;
+      for (const p of data.projects) {
+        msg += `• ${p.repo}\n`;
+      }
+      return msg;
+    } catch (error) {
+      return `❌ エラー: ${error.message}`;
+    }
+  }
+
+  // タスク一覧
+  if (text === 'devタスク' || text === 'dev tasks') {
+    try {
+      const res = await fetch(`${DEV_AGENT_URL}/api/tasks`);
+      const data = await res.json();
+      if (data.tasks.length === 0) return '📋 タスクなし';
+      let msg = `📋 タスク\n保留:${data.pending} 処理中:${data.processing}\n\n`;
+      for (const t of data.tasks.slice(-5)) {
+        const s = t.status === 'completed' ? '✅' : t.status === 'failed' ? '❌' : t.status === 'processing' ? '⚙️' : '📋';
+        msg += `${s} ${t.title.slice(0, 30)}\n`;
+      }
+      return msg;
+    } catch (error) {
+      return `❌ エラー: ${error.message}`;
+    }
+  }
+
+  // タスク追加
+  if (message.startsWith('dev:') || message.startsWith('Dev:')) {
+    const title = message.replace(/^dev:/i, '').trim();
+    if (!title) return '❌ タスク内容を入力\n例: dev: バグ修正';
+    try {
+      const projectsRes = await fetch(`${DEV_AGENT_URL}/api/projects`);
+      const projectsData = await projectsRes.json();
+      if (projectsData.projects.length === 0) return '❌ プロジェクト未登録';
+      const project = `${projectsData.projects[0].owner}/${projectsData.projects[0].repo}`;
+
+      const res = await fetch(`${DEV_AGENT_URL}/api/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project, title })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        return `✅ タスク追加\n📋 ${title}\n\n処理を開始します`;
+      }
+      return `❌ ${data.error}`;
+    } catch (error) {
+      return `❌ エラー: ${error.message}`;
+    }
+  }
+
+  // devヘルプ
+  if (text === 'devヘルプ' || text === 'dev help' || text === 'dev?') {
+    return `🤖 Dev Agent コマンド\n\n` +
+      `状況 - ステータス\n` +
+      `devプロジェクト - 一覧\n` +
+      `devタスク - タスク一覧\n` +
+      `dev: 内容 - タスク追加`;
+  }
+
+  return null;
+}
+
 // メッセージ処理（メイン）
 async function handleMessage(event, env, ctx) {
   console.log('=== handleMessage START ===');
@@ -217,6 +307,13 @@ async function handleMessage(event, env, ctx) {
   // プロジェクト管理コマンド（管理者のみ）
   const ADMIN_USER_ID = env.ADMIN_USER_ID;
   if (ADMIN_USER_ID && userId === ADMIN_USER_ID) {
+    // Dev Agent コマンド
+    const devAgentResponse = await handleDevAgentCommand(userMessage, env);
+    if (devAgentResponse) {
+      await replyLineMessage(replyToken, devAgentResponse, env.LINE_CHANNEL_ACCESS_TOKEN);
+      return;
+    }
+
     const projectResponse = await handleProjectCommand(userMessage, env);
     if (projectResponse) {
       await replyLineMessage(replyToken, projectResponse, env.LINE_CHANNEL_ACCESS_TOKEN);

@@ -1,0 +1,69 @@
+# Cloud Build - Dev Agent deployment
+# 自律開発エージェントのデプロイ設定
+
+steps:
+  # Step 1: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'src/dev-agent/Dockerfile'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/dev-agent:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/dev-agent:latest'
+      - '.'
+    id: 'build'
+
+  # Step 2: Push to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/dev-agent:$COMMIT_SHA'
+    id: 'push'
+    waitFor: ['build']
+
+  # Step 3: Push latest tag
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/dev-agent:latest'
+    id: 'push-latest'
+    waitFor: ['build']
+
+  # Step 4: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'dev-agent'
+      - '--image=gcr.io/$PROJECT_ID/dev-agent:$COMMIT_SHA'
+      - '--region=asia-northeast1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--min-instances=1'  # Always running for instant webhook response
+      - '--max-instances=5'
+      - '--set-env-vars=NODE_ENV=production'
+      - '--set-secrets=LINE_CHANNEL_ACCESS_TOKEN=line-channel-access-token:latest'
+      - '--set-secrets=ADMIN_USER_ID=admin-user-id:latest'
+      - '--set-secrets=GITHUB_TOKEN=github-token:latest'
+      - '--set-secrets=GITHUB_WEBHOOK_SECRET=github-webhook-secret:latest'
+      - '--set-secrets=ANTHROPIC_API_KEY=anthropic-api-key:latest'
+    id: 'deploy'
+    waitFor: ['push']
+
+images:
+  - 'gcr.io/$PROJECT_ID/dev-agent:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/dev-agent:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: '600s'
+
+tags:
+  - 'dev-agent'
+  - 'production'
