@@ -269,6 +269,21 @@ export function parseProjectCommand(text) {
     }
   }
 
+  // Claude返信確認
+  if (lowerText.includes('返信') || lowerText.includes('reply') || lowerText.includes('claude返信')) {
+    return { command: 'check_reply' };
+  }
+
+  // Agent Lightning 状況
+  if (lowerText.includes('ai状況') || lowerText.includes('agl') || lowerText.includes('agent lightning')) {
+    return { command: 'agl_status' };
+  }
+
+  // 活動ログ
+  if (lowerText === 'ログ' || lowerText === 'log' || lowerText.includes('活動ログ')) {
+    return { command: 'logs' };
+  }
+
   // ヘルプ
   if (lowerText.includes('ヘルプ') || lowerText === 'help' || lowerText === '?') {
     return { command: 'help' };
@@ -287,15 +302,94 @@ export function getHelpMessage() {
 【進捗確認】
 ・「進捗」- 全体の進捗を表示
 ・「Phase1 進捗」- CI/CDの詳細
-・「Phase2 進捗」- モックサーバーの詳細
-・「Phase3 進捗」- セキュリティの詳細
-・「Phase4 進捗」- 監視の詳細
+・「ログ」- 最近の活動ログ
 
 【タスク管理】
 ・「タスク開始 p1-1」- タスクを開始
 ・「タスク完了 p1-1」- タスクを完了
 
 【Claude連携】
-・メッセージを入力 → 記録されClaude Codeで確認可能
+・「返信確認」- Claudeからの返信を確認
+・「AI状況」- Agent Lightning状況
+・メッセージを入力 → Claudeに送信
+
+【Dev Agent】
+・「状況」- Dev Agent状態
+・「dev: 内容」- タスク追加
+
 ・「ヘルプ」- このメッセージを表示`;
+}
+
+/**
+ * Claudeからの返信を保存
+ */
+export async function saveClaudeResponse(response, env) {
+  const key = 'claude_responses';
+  const responses = await env.NOTIFICATIONS.get(key, { type: 'json' }) || [];
+
+  responses.push({
+    timestamp: new Date().toISOString(),
+    response: response,
+    read: false
+  });
+
+  // 最新20件のみ保持
+  if (responses.length > 20) {
+    responses.splice(0, responses.length - 20);
+  }
+
+  await env.NOTIFICATIONS.put(key, JSON.stringify(responses));
+}
+
+/**
+ * Claudeからの返信を取得
+ */
+export async function getClaudeResponses(env) {
+  const responses = await env.NOTIFICATIONS.get('claude_responses', { type: 'json' }) || [];
+  return responses;
+}
+
+/**
+ * 未読のClaude返信を取得してマーク
+ */
+export async function getUnreadClaudeResponses(env) {
+  const key = 'claude_responses';
+  const responses = await env.NOTIFICATIONS.get(key, { type: 'json' }) || [];
+
+  const unread = responses.filter(r => !r.read);
+
+  // すべて既読にマーク
+  responses.forEach(r => r.read = true);
+  await env.NOTIFICATIONS.put(key, JSON.stringify(responses));
+
+  return unread;
+}
+
+/**
+ * Agent Lightning 状況を取得
+ */
+export async function getAgentLightningStatus(env) {
+  try {
+    // ローカルの Agent Lightning API を呼び出し（本番では別のURLを使用）
+    const aglUrl = process.env.AGL_API_URL || 'http://localhost:8081';
+    const res = await fetch(`${aglUrl}/api/stats`, {
+      signal: AbortSignal.timeout(3000)
+    });
+
+    if (res.ok) {
+      const stats = await res.json();
+      return `🤖 Agent Lightning 状況
+
+📊 データ統計:
+・インタラクション: ${stats.total_interactions}件
+・報酬付きデータ: ${stats.rewarded_count}件
+・平均報酬: ${(stats.average_reward || 0).toFixed(2)}
+
+📁 タスク別:
+${Object.entries(stats.interactions_by_task || {}).map(([k, v]) => `・${k}: ${v}件`).join('\n') || '・データなし'}`;
+    }
+    return '⚠️ Agent Lightning: オフライン';
+  } catch (error) {
+    return '⚠️ Agent Lightning: 接続できません';
+  }
 }

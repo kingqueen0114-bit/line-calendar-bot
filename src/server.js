@@ -3,6 +3,9 @@
  */
 import express from 'express';
 import crypto from 'crypto';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
 import { handleWebhook, runScheduledTask } from './app.js';
 import {
   rateLimit,
@@ -11,6 +14,9 @@ import {
   requestLogger,
   validateInput
 } from './security.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -93,7 +99,7 @@ app.get('/oauth/callback', async (req, res) => {
 // LIFF アプリ
 app.get('/liff', async (req, res) => {
   const { generateLiffHtml } = await import('./liff.js');
-  const liffId = process.env.LIFF_ID || 'YOUR_LIFF_ID';
+  const liffId = (process.env.LIFF_ID || 'YOUR_LIFF_ID').trim();
   const apiBase = `https://${req.get('host')}`;
   let html = generateLiffHtml(liffId, apiBase);
   // キャッシュ回避用のタイムスタンプを埋め込み
@@ -112,7 +118,7 @@ app.get('/liff', async (req, res) => {
 // LIFF アプリ (キャッシュ回避用)
 app.get('/liff2', async (req, res) => {
   const { generateLiffHtml } = await import('./liff.js');
-  const liffId = process.env.LIFF_ID || 'YOUR_LIFF_ID';
+  const liffId = (process.env.LIFF_ID || 'YOUR_LIFF_ID').trim();
   const apiBase = `https://${req.get('host')}`;
   let html = generateLiffHtml(liffId, apiBase);
   html = html.replace('</head>', `<!-- build: ${Date.now()} --></head>`);
@@ -122,6 +128,131 @@ app.get('/liff2', async (req, res) => {
     'Expires': '0'
   });
   res.type('html').send(html);
+});
+
+// 管理者チェック（Claude chat用）
+app.get('/api/admin-check', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { env } = await import('./env-adapter.js');
+  const adminUserId = env.ADMIN_USER_ID;
+
+  if (adminUserId) {
+    res.json({ adminUserId });
+  } else {
+    res.status(404).json({ error: 'Admin not configured' });
+  }
+});
+
+// Claude Chat ページ (adminUserIdを埋め込み)
+app.get('/claude-chat', async (req, res) => {
+  const { env } = await import('./env-adapter.js');
+  const adminUserId = env.ADMIN_USER_ID || '';
+  const filePath = path.join(__dirname, '..', 'public', 'claude-chat.html');
+
+  let html = fs.readFileSync(filePath, 'utf-8');
+  // adminUserIdを直接埋め込む
+  html = html.replace('var adminUserId = null;', `var adminUserId = "${adminUserId}";`);
+  html = html.replace("接続中...", "オンライン");
+
+  res.set({
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Content-Type': 'text/html; charset=utf-8'
+  });
+  res.send(html);
+});
+
+// Claude Chat API: 会話履歴取得
+app.get('/api/claude/history', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const historyKey = `claude_chat_history:${userId}`;
+    const history = await env.NOTIFICATIONS.get(historyKey, { type: 'json' }) || [];
+    res.json({ success: true, history });
+  } catch (err) {
+    console.error('Claude history error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Claude Chat API: メッセージ送信
+app.post('/api/claude/chat', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, message } = req.body;
+
+  if (!userId || !message) {
+    return res.status(400).json({ error: 'userId and message required' });
+  }
+
+  // 管理者チェック
+  const { env } = await import('./env-adapter.js');
+  const ADMIN_USER_ID = env.ADMIN_USER_ID;
+
+  if (!ADMIN_USER_ID || userId !== ADMIN_USER_ID) {
+    return res.status(403).json({ error: 'Admin access only' });
+  }
+
+  try {
+    // 会話履歴を取得
+    const historyKey = `claude_chat_history:${userId}`;
+    let history = await env.NOTIFICATIONS.get(historyKey, { type: 'json' }) || [];
+
+    // ユーザーメッセージを追加
+    history.push({
+      role: 'user',
+      content: message,
+      timestamp: new Date().toISOString()
+    });
+
+    // VM上のClaude Codeに送信
+    const DEV_AGENT_URL = process.env.DEV_AGENT_URL || 'http://35.221.93.66:8080';
+
+    const vmResponse = await fetch(`${DEV_AGENT_URL}/api/claude/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        message,
+        history: history.slice(-20) // 最新20件のみ送信
+      }),
+      signal: AbortSignal.timeout(120000) // 2分タイムアウト
+    });
+
+    const vmData = await vmResponse.json();
+
+    let response = 'エラーが発生しました';
+    if (vmData.success && vmData.response) {
+      response = vmData.response;
+    } else if (vmData.error) {
+      response = `エラー: ${vmData.error}`;
+    }
+
+    // Claude応答を履歴に追加
+    history.push({
+      role: 'claude',
+      content: response,
+      timestamp: new Date().toISOString()
+    });
+
+    // 履歴を保存（最新50件）
+    if (history.length > 50) {
+      history = history.slice(-50);
+    }
+    await env.NOTIFICATIONS.put(historyKey, JSON.stringify(history));
+
+    res.json({ success: true, response });
+  } catch (err) {
+    console.error('Claude chat error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Debug: OAuth設定確認
@@ -1869,24 +2000,6 @@ app.get('/api/backup/export', async (req, res) => {
   }
 });
 
-// バックアップインポート
-app.post('/api/backup/import', async (req, res) => {
-  const { userId, data, merge } = req.body;
-  if (!userId || !data) {
-    return res.status(400).json({ error: 'userId and data are required' });
-  }
-
-  try {
-    const { env } = await import('./env-adapter.js');
-    const { importUserData } = await import('./backup.js');
-    const result = await importUserData(userId, data, env, merge || false);
-    res.json({ success: true, result });
-  } catch (err) {
-    console.error('Backup import error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // バックアップ一覧取得
 app.get('/api/backup/list', async (req, res) => {
   const { userId } = req.query;
@@ -2063,6 +2176,67 @@ app.post('/api/project/messages', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Message save error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Claudeからの返信を保存（LINE「返信確認」コマンドで確認可能）
+app.post('/api/project/reply', async (req, res) => {
+  const { response } = req.body;
+  if (!response) {
+    return res.status(400).json({ error: 'response is required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { saveClaudeResponse, addActivityLog } = await import('./project-manager.js');
+
+    await saveClaudeResponse(response, env);
+    await addActivityLog('Claude返信: ' + response.substring(0, 30) + '...', env);
+    res.json({ success: true, message: 'Response saved. User can check with "返信確認" command.' });
+  } catch (err) {
+    console.error('Reply save error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 管理者にLINEメッセージを直接送信
+app.post('/api/project/notify', async (req, res) => {
+  const { message } = req.body;
+  if (!message) {
+    return res.status(400).json({ error: 'message is required' });
+  }
+
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { sendLineMessage } = await import('./line.js');
+    const { addActivityLog } = await import('./project-manager.js');
+
+    const adminUserId = env.ADMIN_USER_ID;
+    if (!adminUserId) {
+      return res.status(400).json({ error: 'ADMIN_USER_ID not configured' });
+    }
+
+    await sendLineMessage(adminUserId, message, env.LINE_CHANNEL_ACCESS_TOKEN);
+    await addActivityLog('LINE通知送信: ' + message.substring(0, 30) + '...', env);
+    res.json({ success: true, message: 'Message sent to admin' });
+  } catch (err) {
+    console.error('Notify error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 未読メッセージ数を取得
+app.get('/api/project/unread', async (req, res) => {
+  try {
+    const { env } = await import('./env-adapter.js');
+    const { getMessagesForClaude } = await import('./project-manager.js');
+
+    const messages = await getMessagesForClaude(env);
+    const unread = messages.filter(m => !m.read);
+    res.json({ unread: unread.length, messages: unread });
+  } catch (err) {
+    console.error('Unread check error:', err);
     res.status(500).json({ error: err.message });
   }
 });

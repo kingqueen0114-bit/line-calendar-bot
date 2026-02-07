@@ -135,7 +135,29 @@ async function getOrCreateProject(owner, repo, cloneUrl) {
   return projects[projectKey];
 }
 
-// Run Claude Code
+// Run Claude Code (Simple - for chat)
+async function runClaudeCodeSimple(prompt, cwd) {
+  console.log(`\n[Claude Simple] ${cwd}`);
+  console.log(`[Claude Simple] Prompt: ${prompt.slice(0, 50)}...`);
+
+  try {
+    const stdout = execSync(`claude -p "${prompt.replace(/"/g, '\\"')}" --dangerously-skip-permissions`, {
+      cwd,
+      encoding: 'utf-8',
+      timeout: 120000, // 2分
+      env: { ...process.env, HOME: '/home/dev-agent', FORCE_COLOR: '0' },
+      maxBuffer: 1024 * 1024 * 10
+    });
+
+    console.log(`[Claude Simple] Got response: ${stdout.slice(0, 50)}...`);
+    return { stdout, stderr: '' };
+  } catch (error) {
+    console.error('[Claude Simple] execSync error:', error.message);
+    throw error;
+  }
+}
+
+// Run Claude Code (Full - for dev tasks)
 async function runClaudeCode(prompt, cwd) {
   return new Promise((resolve, reject) => {
     const args = ['-p', prompt, '--allowedTools', ALLOWED_TOOLS, '--dangerously-skip-permissions'];
@@ -512,6 +534,217 @@ app.delete('/api/tasks/cleanup', async (req, res) => {
   res.json({ removed: before - taskQueue.length, remaining: taskQueue.length });
 });
 
+// === LINE Message Processing with Claude Code ===
+
+// Message history for context
+let messageHistory = [];
+const MESSAGE_HISTORY_FILE = '/home/dev-agent/message-history.json';
+
+async function loadMessageHistory() {
+  try {
+    const data = await fs.readFile(MESSAGE_HISTORY_FILE, 'utf-8');
+    messageHistory = JSON.parse(data);
+  } catch {
+    messageHistory = [];
+  }
+}
+
+async function saveMessageHistory() {
+  await fs.writeFile(MESSAGE_HISTORY_FILE, JSON.stringify(messageHistory.slice(-50), null, 2));
+}
+
+// Process LINE message with Claude Code
+async function processLineMessage(message, userId) {
+  console.log(`\n[LINE] Processing: ${message}`);
+
+  // Add to history
+  messageHistory.push({
+    role: 'user',
+    content: message,
+    timestamp: new Date().toISOString()
+  });
+  await saveMessageHistory();
+
+  // Build prompt with context
+  const recentHistory = messageHistory.slice(-10).map(m =>
+    `${m.role === 'user' ? 'ユーザー' : 'Claude'}: ${m.content}`
+  ).join('\n');
+
+  const prompt = `あなたはLINE Bot経由でユーザーと会話しています。
+以下のメッセージに日本語で簡潔に返信してください。
+
+## 最近の会話履歴
+${recentHistory}
+
+## 今のメッセージ
+${message}
+
+## 指示
+- 簡潔に返信（200文字以内推奨）
+- フレンドリーに
+- 絵文字を適度に使用
+- コードの説明が必要な場合は短く
+
+返信のみを出力してください。`;
+
+  try {
+    const result = await runClaudeCode(prompt, REPOS_BASE_PATH);
+
+    // Extract response (last meaningful output)
+    let response = result.stdout.trim();
+
+    // Clean up Claude Code output
+    const lines = response.split('\n');
+    const meaningfulLines = lines.filter(line =>
+      !line.startsWith('╭') &&
+      !line.startsWith('│') &&
+      !line.startsWith('╰') &&
+      !line.includes('Claude Code') &&
+      line.trim().length > 0
+    );
+
+    response = meaningfulLines.join('\n').trim() || '処理が完了しました。';
+
+    // Limit response length
+    if (response.length > 2000) {
+      response = response.substring(0, 1997) + '...';
+    }
+
+    // Add to history
+    messageHistory.push({
+      role: 'assistant',
+      content: response,
+      timestamp: new Date().toISOString()
+    });
+    await saveMessageHistory();
+
+    return response;
+  } catch (error) {
+    console.error('Claude Code error:', error);
+    return `⚠️ 処理中にエラーが発生しました: ${error.message.slice(0, 100)}`;
+  }
+}
+
+// LINE message endpoint (called from Cloud Run)
+app.post('/api/line/message', async (req, res) => {
+  try {
+    const { message, userId, replyToken } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: 'message required' });
+    }
+
+    console.log(`[LINE] Received: ${message} from ${userId}`);
+
+    // Process with Claude Code
+    const response = await processLineMessage(message, userId);
+
+    // Send reply via LINE if token provided
+    if (replyToken && LINE_CHANNEL_ACCESS_TOKEN) {
+      try {
+        await fetch('https://api.line.me/v2/bot/message/reply', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+          },
+          body: JSON.stringify({
+            replyToken,
+            messages: [{ type: 'text', text: response }]
+          })
+        });
+      } catch (lineError) {
+        console.error('LINE reply error:', lineError);
+      }
+    }
+
+    res.json({
+      status: 'ok',
+      response,
+      processedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Message processing error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get conversation history
+app.get('/api/line/history', (req, res) => {
+  res.json({
+    history: messageHistory.slice(-20),
+    count: messageHistory.length
+  });
+});
+
+// Clear history
+app.delete('/api/line/history', async (req, res) => {
+  messageHistory = [];
+  await saveMessageHistory();
+  res.json({ status: 'ok', message: 'History cleared' });
+});
+
+// Claude Chat API (called from Cloud Run LIFF page)
+app.post('/api/claude/chat', async (req, res) => {
+  try {
+    const { userId, message, history } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ error: 'message required' });
+    }
+
+    console.log(`\n[Claude Chat] User: ${userId}`);
+    console.log(`[Claude Chat] Message: ${message.slice(0, 100)}...`);
+
+    // シンプルなプロンプト
+    const prompt = `${message}
+
+短く回答してください。`;
+
+    // シンプルなClaude呼び出し（ツール最小限）
+    const result = await runClaudeCodeSimple(prompt, REPOS_BASE_PATH);
+
+    // Extract response
+    let response = result.stdout.trim();
+
+    // Clean up Claude Code output
+    const lines = response.split('\n');
+    const cleanLines = lines.filter(line => {
+      if (line.startsWith('⠋') || line.startsWith('⠙') || line.startsWith('⠹')) return false;
+      if (line.includes('Initializing') || line.includes('Loading')) return false;
+      if (line.startsWith('>') && line.includes('claude')) return false;
+      return true;
+    });
+
+    response = cleanLines.join('\n').trim();
+
+    // Limit response length
+    if (response.length > 2000) {
+      response = response.slice(0, 1997) + '...';
+    }
+
+    if (!response) {
+      response = '処理が完了しましたが、特に出力はありません。';
+    }
+
+    console.log(`[Claude Chat] Response: ${response.slice(0, 100)}...`);
+
+    res.json({
+      success: true,
+      response,
+      processedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('[Claude Chat] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 function getIssueType(issue) {
   const labels = issue.labels?.map(l => l.name.toLowerCase()) || [];
   if (labels.includes('bug')) return 'bugfix';
@@ -522,14 +755,15 @@ function getIssueType(issue) {
 }
 
 // Start
-loadData().then(() => {
+Promise.all([loadData(), loadMessageHistory()]).then(() => {
   // Ensure repos directory exists
   fs.mkdir(REPOS_BASE_PATH, { recursive: true }).catch(() => {});
 
   app.listen(PORT, () => {
     console.log(`\nDev Agent VM (Multi-Project) running on port ${PORT}`);
     console.log(`Projects: ${Object.keys(projects).length}`);
-    console.log(`Pending tasks: ${taskQueue.filter(t => t.status === 'pending').length}\n`);
-    sendLineNotification(`🚀 Dev Agent VM 起動\n📁 ${Object.keys(projects).length} プロジェクト`);
+    console.log(`Pending tasks: ${taskQueue.filter(t => t.status === 'pending').length}`);
+    console.log(`Message history: ${messageHistory.length} messages\n`);
+    sendLineNotification(`🚀 Dev Agent VM 起動\n📁 ${Object.keys(projects).length} プロジェクト\n💬 LINE対話モード有効`);
   });
 });

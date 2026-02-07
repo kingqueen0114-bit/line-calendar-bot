@@ -183,6 +183,45 @@ async function handleFollowEvent(event, env) {
 // Dev Agent コマンド処理
 const DEV_AGENT_URL = process.env.DEV_AGENT_URL || 'http://35.221.93.66:8080';
 
+// Claude Code VM に転送して自動応答
+async function forwardToClaudeVM(message, userId, replyToken, env) {
+  try {
+    console.log(`[VM Forward] Sending to Claude VM: ${message.substring(0, 50)}...`);
+
+    const response = await fetch(`${DEV_AGENT_URL}/api/line/message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        userId,
+        replyToken
+      }),
+      signal: AbortSignal.timeout(60000) // 60秒タイムアウト
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log(`[VM Forward] Response received: ${data.response?.substring(0, 50)}...`);
+
+      // VMが直接返信しない場合はここで返信
+      if (!replyToken && data.response) {
+        await sendLineMessage(userId, data.response, env.LINE_CHANNEL_ACCESS_TOKEN);
+      }
+
+      return data.response;
+    } else {
+      console.error(`[VM Forward] Error: ${response.status}`);
+      return null;
+    }
+  } catch (error) {
+    console.error(`[VM Forward] Error: ${error.message}`);
+    // VMに接続できない場合はメッセージを保存
+    const { saveMessageForClaude } = await import('./project-manager.js');
+    await saveMessageForClaude(message, env);
+    return null;
+  }
+}
+
 async function handleDevAgentCommand(message, env) {
   const text = message.trim().toLowerCase();
 
@@ -258,15 +297,6 @@ async function handleDevAgentCommand(message, env) {
     }
   }
 
-  // devヘルプ
-  if (text === 'devヘルプ' || text === 'dev help' || text === 'dev?') {
-    return `🤖 Dev Agent コマンド\n\n` +
-      `状況 - ステータス\n` +
-      `devプロジェクト - 一覧\n` +
-      `devタスク - タスク一覧\n` +
-      `dev: 内容 - タスク追加`;
-  }
-
   return null;
 }
 
@@ -304,22 +334,8 @@ async function handleMessage(event, env, ctx) {
     return;
   }
 
-  // プロジェクト管理コマンド（管理者のみ）
-  const ADMIN_USER_ID = env.ADMIN_USER_ID;
-  if (ADMIN_USER_ID && userId === ADMIN_USER_ID) {
-    // Dev Agent コマンド
-    const devAgentResponse = await handleDevAgentCommand(userMessage, env);
-    if (devAgentResponse) {
-      await replyLineMessage(replyToken, devAgentResponse, env.LINE_CHANNEL_ACCESS_TOKEN);
-      return;
-    }
-
-    const projectResponse = await handleProjectCommand(userMessage, env);
-    if (projectResponse) {
-      await replyLineMessage(replyToken, projectResponse, env.LINE_CHANNEL_ACCESS_TOKEN);
-      return;
-    }
-  }
+  // LINEメッセージは全ユーザー共通でカレンダー/タスク機能のみ
+  // Claude管理機能はリッチメニューのClaudeボタン（LIFF）で行う
 
   // 認証チェック
   console.log('Checking authentication for userId:', userId);
@@ -682,6 +698,20 @@ async function handleCompleteAction(eventData, userId, env) {
 
 // プロジェクト管理コマンド処理
 async function handleProjectCommand(message, env) {
+  const {
+    parseProjectCommand,
+    generateProgressSummary,
+    generateDetailedProgress,
+    getProjectProgress,
+    updateTaskStatus,
+    addActivityLog,
+    getHelpMessage,
+    saveMessageForClaude,
+    getUnreadClaudeResponses,
+    getAgentLightningStatus,
+    getRecentActivityLogs
+  } = await import('./project-manager.js');
+
   const cmd = parseProjectCommand(message);
 
   switch (cmd.command) {
@@ -717,6 +747,35 @@ async function handleProjectCommand(message, env) {
         }
       }
       return '指定されたタスクが見つかりません。';
+    }
+
+    case 'check_reply': {
+      const unread = await getUnreadClaudeResponses(env);
+      if (unread.length === 0) {
+        return '📭 新しい返信はありません';
+      }
+      let response = `📬 Claudeからの返信 (${unread.length}件)\n━━━━━━━━━━━━━━━━\n\n`;
+      for (const r of unread) {
+        const time = new Date(r.timestamp).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+        response += `🕐 ${time}\n${r.response}\n\n`;
+      }
+      return response;
+    }
+
+    case 'agl_status':
+      return await getAgentLightningStatus(env);
+
+    case 'logs': {
+      const logs = await getRecentActivityLogs(10, env);
+      if (logs.length === 0) {
+        return '📋 活動ログはありません';
+      }
+      let response = '📋 最近の活動ログ\n━━━━━━━━━━━━━━━━\n\n';
+      for (const log of logs) {
+        const time = new Date(log.timestamp).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+        response += `🕐 ${time}\n   ${log.activity}\n`;
+      }
+      return response;
     }
 
     case 'help':

@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "claude-mem": {
+      "command": "node",
+      "args": ["/Users/yuiyane/claude-mem/dist/mcp-server.js"]
+    },
+    "agent-lightning": {
+      "command": "node",
+      "args": ["/Users/yuiyane/agent-lightning-mcp/dist/index.js"]
+    },
+    "line-bot": {
+      "command": "npx",
+      "args": ["-y", "@line/line-bot-mcp-server"],
+      "env": {
+        "CHANNEL_ACCESS_TOKEN": "${LINE_CHANNEL_ACCESS_TOKEN}",
+        "DESTINATION_USER_ID": "${ADMIN_USER_ID}"
+      }
+    }
+  }
+}

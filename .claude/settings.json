@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./deploy.sh*)",
+      "Bash(node *)",
+      "Bash(npm *)",
+      "Bash(curl *)",
+      "Bash(export *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(source *)",
+      "Bash(grep *)"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}

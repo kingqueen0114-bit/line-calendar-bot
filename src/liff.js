@@ -1565,6 +1565,122 @@ export function generateLiffHtml(liffId, apiBase) {
       color: var(--text-secondary);
     }
 
+    /* Claude Chat */
+    .claude-chat-container {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 180px);
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .claude-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 16px;
+      text-align: center;
+    }
+    .claude-status {
+      font-size: 13px;
+      opacity: 0.9;
+    }
+    .claude-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .claude-message {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      line-height: 1.5;
+      font-size: 14px;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+    .claude-message.user {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .claude-message.assistant {
+      background: var(--bg);
+      color: var(--text);
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .claude-message.system {
+      background: var(--bg);
+      color: var(--text-muted);
+      align-self: center;
+      font-size: 13px;
+      padding: 8px 16px;
+    }
+    .claude-message.error {
+      background: #ffebee;
+      color: #c62828;
+      align-self: center;
+    }
+    .claude-typing {
+      display: flex;
+      gap: 4px;
+      padding: 12px 16px;
+      background: var(--bg);
+      border-radius: 18px;
+      align-self: flex-start;
+    }
+    .claude-typing span {
+      width: 8px;
+      height: 8px;
+      background: #667eea;
+      border-radius: 50%;
+      animation: claudeTyping 1.4s infinite ease-in-out;
+    }
+    .claude-typing span:nth-child(2) { animation-delay: 0.2s; }
+    .claude-typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes claudeTyping {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-8px); }
+    }
+    .claude-input-area {
+      display: flex;
+      gap: 10px;
+      padding: 12px;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+    }
+    .claude-input-area input {
+      flex: 1;
+      border: 2px solid var(--border);
+      border-radius: 24px;
+      padding: 12px 16px;
+      font-size: 15px;
+      outline: none;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .claude-input-area input:focus {
+      border-color: #667eea;
+    }
+    .claude-input-area button {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    .claude-input-area button:disabled {
+      opacity: 0.5;
+    }
+
     .settings-group {
       background: var(--card);
       border-radius: 10px;
@@ -1870,6 +1986,22 @@ export function generateLiffHtml(liffId, apiBase) {
         </div>
       </div>
 
+      <!-- Claudeセクション -->
+      <div id="claude" class="section">
+        <div class="claude-chat-container">
+          <div class="claude-header">
+            <div class="claude-status" id="claude-status">接続中...</div>
+          </div>
+          <div class="claude-messages" id="claude-messages">
+            <div class="claude-message system">Claude Code に何でも指示できます</div>
+          </div>
+          <div class="claude-input-area">
+            <input type="text" id="claude-input" placeholder="メッセージを入力..." onkeypress="if(event.keyCode===13)sendClaudeMessage()">
+            <button id="claude-send-btn" onclick="sendClaudeMessage()">➤</button>
+          </div>
+        </div>
+      </div>
+
       <div id="settings" class="section">
         <div class="settings-group">
           <div class="settings-group-title">アカウント</div>
@@ -2010,10 +2142,6 @@ export function generateLiffHtml(liffId, apiBase) {
           <div class="settings-item clickable" onclick="exportBackupAsJson()">
             <span class="settings-item-label" style="color:var(--primary);">JSONエクスポート</span>
           </div>
-          <div class="settings-item clickable" onclick="triggerBackupImport()">
-            <span class="settings-item-label" style="color:var(--primary);">JSONインポート</span>
-          </div>
-          <input type="file" id="backup-file-input" accept=".json" style="display:none;" onchange="importBackupFromJson(event)">
         </div>
         <div class="settings-group">
           <div class="settings-group-title">ヘルプ</div>
@@ -2040,6 +2168,10 @@ export function generateLiffHtml(liffId, apiBase) {
       <button class="tab-item" data-tab="memo">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
         <span>メモ</span>
+      </button>
+      <button class="tab-item" data-tab="claude">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+        <span>Claude</span>
       </button>
       <button class="tab-item" data-tab="settings">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
@@ -2899,6 +3031,7 @@ export function generateLiffHtml(liffId, apiBase) {
         loadNotificationSettings();
         loadBackupSettings();
         initSyncSettings();
+        initClaudeChat();
 
         // 招待リンクからの参加処理
         await handleJoinFromUrl();
@@ -2938,7 +3071,7 @@ export function generateLiffHtml(liffId, apiBase) {
 
       console.log('handleTabFromUrl - tab:', tab, 'action:', action, 'search:', window.location.search);
 
-      if (tab && ['calendar', 'tasks', 'memo', 'settings'].includes(tab)) {
+      if (tab && ['calendar', 'tasks', 'memo', 'claude', 'settings'].includes(tab)) {
         document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
@@ -3149,6 +3282,114 @@ export function generateLiffHtml(liffId, apiBase) {
         }
       } catch (error) {
         console.error('Failed to load task lists:', error);
+      }
+    }
+
+    // === Claude Chat ===
+    var claudeProcessing = false;
+    var claudeAdminId = null;
+
+    async function initClaudeChat() {
+      try {
+        const res = await fetch(API_BASE + '/api/admin-check');
+        const data = await res.json();
+        if (data.adminUserId) {
+          claudeAdminId = data.adminUserId;
+          document.getElementById('claude-status').textContent = 'オンライン';
+          document.getElementById('claude-status').style.color = '#4caf50';
+        } else {
+          document.getElementById('claude-status').textContent = '管理者未設定';
+          document.getElementById('claude-status').style.color = '#f44336';
+        }
+      } catch (e) {
+        document.getElementById('claude-status').textContent = '接続エラー';
+        document.getElementById('claude-status').style.color = '#f44336';
+      }
+    }
+
+    function addClaudeMessage(text, type) {
+      var container = document.getElementById('claude-messages');
+      var msg = document.createElement('div');
+      msg.className = 'claude-message ' + (type || 'user');
+      msg.textContent = text;
+      container.appendChild(msg);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function showClaudeTyping() {
+      var container = document.getElementById('claude-messages');
+      var existing = document.getElementById('claude-typing');
+      if (existing) return;
+      var typing = document.createElement('div');
+      typing.id = 'claude-typing';
+      typing.className = 'claude-typing';
+      typing.innerHTML = '<span></span><span></span><span></span>';
+      container.appendChild(typing);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function hideClaudeTyping() {
+      var typing = document.getElementById('claude-typing');
+      if (typing) typing.remove();
+    }
+
+    async function sendClaudeMessage() {
+      var input = document.getElementById('claude-input');
+      var text = input.value.trim();
+      if (!text || claudeProcessing) return;
+
+      if (!claudeAdminId) {
+        addClaudeMessage('接続中です。しばらくお待ちください。', 'error');
+        return;
+      }
+
+      // 管理者チェック
+      if (userId !== claudeAdminId) {
+        addClaudeMessage('この機能は管理者のみ利用できます。', 'error');
+        return;
+      }
+
+      addClaudeMessage(text, 'user');
+      input.value = '';
+      claudeProcessing = true;
+      document.getElementById('claude-send-btn').disabled = true;
+      showClaudeTyping();
+
+      // 特殊コマンド処理
+      var lowerText = text.toLowerCase();
+      var actualMessage = text;
+
+      if (lowerText === 'sync' || lowerText === '同期' || lowerText === '更新') {
+        actualMessage = 'cd /home/dev-agent/repos/kingqueen0114-bit/line-calendar-bot && git fetch origin && git reset --hard origin/main && git log --oneline -5';
+      } else if (lowerText === 'status' || lowerText === '状況') {
+        actualMessage = 'VMの状態とline-calendar-botリポジトリの最新コミットを教えて';
+      } else if (lowerText === 'help' || lowerText === 'ヘルプ' || lowerText === '?') {
+        hideClaudeTyping();
+        claudeProcessing = false;
+        document.getElementById('claude-send-btn').disabled = false;
+        addClaudeMessage('📋 コマンド一覧\\n\\nsync - リポジトリ同期\\nstatus - 状況確認\\nhelp - このヘルプ\\n\\nその他、自由に指示できます', 'assistant');
+        return;
+      }
+
+      try {
+        const res = await fetch(API_BASE + '/api/claude/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: claudeAdminId, message: actualMessage })
+        });
+        const data = await res.json();
+        hideClaudeTyping();
+        if (data.success && data.response) {
+          addClaudeMessage(data.response, 'assistant');
+        } else {
+          addClaudeMessage('エラー: ' + (data.error || '不明'), 'error');
+        }
+      } catch (e) {
+        hideClaudeTyping();
+        addClaudeMessage('通信エラー: ' + e.message, 'error');
+      } finally {
+        claudeProcessing = false;
+        document.getElementById('claude-send-btn').disabled = false;
       }
     }
 
@@ -5407,49 +5648,6 @@ export function generateLiffHtml(liffId, apiBase) {
         console.error('Export failed:', err);
         showToast('エクスポートに失敗しました');
       }
-    }
-
-    function triggerBackupImport() {
-      document.getElementById('backup-file-input').click();
-    }
-
-    async function importBackupFromJson(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      if (!confirm('このファイルからインポートしますか？\\n\\n既存のデータは上書きされます。')) {
-        event.target.value = '';
-        return;
-      }
-
-      showToast('インポート中...');
-
-      try {
-        const text = await file.text();
-        const data = JSON.parse(text);
-
-        const response = await fetch(API_BASE + '/api/backup/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, data, merge: false })
-        });
-
-        const result = await response.json();
-        if (result.success) {
-          showToast('インポート完了: 予定' + result.result.events + '件, タスク' + result.result.tasks + '件, メモ' + result.result.memos + '件');
-          // データを再読み込み
-          await loadEvents();
-          await loadTasks();
-          await loadMemos();
-        } else {
-          showToast('インポートに失敗しました: ' + (result.error || ''));
-        }
-      } catch (err) {
-        console.error('Failed to import backup:', err);
-        showToast('インポートに失敗しました');
-      }
-
-      event.target.value = '';
     }
 
     function openMemoModal() {
