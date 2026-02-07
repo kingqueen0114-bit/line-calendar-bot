@@ -1,6 +1,47 @@
 # プロジェクト進捗報告
 
-**最終更新:** 2026-02-06
+**最終更新:** 2026-02-08
+
+---
+
+## 最新セッション (2026-02-08)
+
+### 実施した作業
+
+#### 1. Agent Team設定の作成 ✅
+Claude Code用のエージェントチーム設定を構築:
+- `src/agent-team/config.js` - エージェント設定（Explorer, Planner, Executor, General）
+- `src/agent-team/tracker.js` - タスク追跡システム
+- `src/agent-team/workflow.js` - ワークフロー実行エンジン
+- `src/agent-team/index.js` - エクスポート
+- `docs/AGENT_TEAM_GUIDE.md` - 使用ガイド
+
+#### 2. コードレビュー改善の実装 ✅
+server.jsの改善:
+- **静的インポート**: 動的import()を静的importに変更（パフォーマンス向上）
+- **統一エラーハンドラー**: 一貫したJSONエラーレスポンス
+- **404ハンドラー**: 存在しないエンドポイントに適切なレスポンス
+- **CORSヘルパー関数**: setCorsHeaders()で重複コード削減
+
+#### 3. ミドルウェア・ルート構造の準備 ✅
+将来のリファクタリング用にモジュール化:
+- `src/middleware/common.js` - setCors, requireUserId, requireAuth, requireAdmin, asyncHandler
+- `src/middleware/errorHandler.js` - AppError, ValidationError, AuthenticationError
+- `src/routes/*.js` - api, liff, backup, project, webhook, local, shared
+- `src/server-new.js` - 完全リファクタリング版（将来用）
+
+### デプロイ状況
+| 項目 | 値 |
+|------|-----|
+| 最新コミット | `f6b5693` - Refactor: Add static imports, error handler, and route structure |
+| Cloud Run リビジョン | `line-calendar-bot-00103-sjm` |
+| 本番URL | https://line-calendar-bot-67385363897.asia-northeast1.run.app |
+| ステータス | ✅ 稼働中 |
+
+### Agent Team統計
+- 総タスク: 6件
+- 成功率: 83.3%
+- 失敗: 0件
 
 ---
 
@@ -176,19 +217,60 @@ GitHub Push → Cloud Build → Container Registry → Cloud Run
 
 ## 次のアクション（優先度順）
 
-1. **Phase 4: 監視・アラート**
+1. **server.js完全リファクタリング**
+   - server-new.jsへの移行
+   - ルーターベースの構造に統一
+   - テスト後に本番適用
+
+2. **Phase 4: 監視・アラート**
    - Cloud Monitoringダッシュボード作成
    - エラーアラート設定
    - コスト監視
 
-2. **Phase 1/2: 自動テスト**
+3. **Phase 1/2: 自動テスト**
    - 自動テストスクリプト作成
    - CI/CDにテスト統合
 
-3. **Phase 3: 追加セキュリティ**
+4. **Phase 3: 追加セキュリティ**
    - Secret Manager統合
    - 監査ログ設定
    - カスタムドメイン取得時にCloud Armor設定
+
+---
+
+## プロジェクト構成（2026-02-08時点）
+
+```
+src/
+├── server.js              # メインサーバー（現行版）
+├── server-new.js          # リファクタリング版（将来用）
+├── app.js                 # Webhookハンドラー
+├── security.js            # セキュリティミドルウェア
+├── env-adapter.js         # 環境変数アダプター
+├── middleware/
+│   ├── common.js          # 共通ミドルウェア
+│   └── errorHandler.js    # エラーハンドラー
+├── routes/
+│   ├── api.js             # APIルート
+│   ├── liff.js            # LIFFルート
+│   ├── backup.js          # バックアップルート
+│   ├── project.js         # プロジェクト管理ルート
+│   ├── webhook.js         # Webhookルート
+│   ├── local.js           # ローカルイベント/タスクルート
+│   └── shared.js          # 共有カレンダー/タスクルート
+├── agent-team/
+│   ├── config.js          # エージェント設定
+│   ├── tracker.js         # タスク追跡
+│   ├── workflow.js        # ワークフロー実行
+│   └── index.js           # エクスポート
+└── ... (その他のモジュール)
+
+docs/
+├── PROJECT_PROGRESS.md    # このファイル
+├── AGENT_TEAM_GUIDE.md    # Agent Team使用ガイド
+├── OPERATIONS_MANUAL.md   # 運用マニュアル
+└── ERROR_LOG.md           # エラーログ
+```
 
 ---
 
