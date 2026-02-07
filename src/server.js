@@ -1,12 +1,22 @@
 /**
  * LINE Calendar Bot - Express Server for Google Cloud Run
+ * リファクタリング済み: 静的インポート + 統一エラーハンドリング
  */
 import express from 'express';
 import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { handleWebhook, runScheduledTask } from './app.js';
+
+// アプリケーションモジュール（静的インポート）
+import { handleWebhook, runScheduledTask, registerUserForNotifications, updateUserNotificationSettings } from './app.js';
+import { env } from './env-adapter.js';
+import { isUserAuthenticated, getAuthorizationUrl, revokeUserTokens, handleOAuthCallback } from './oauth.js';
+import { getUpcomingEvents, createEvent, deleteEvent } from './calendar.js';
+import { getAllIncompleteTasks, getAllCompletedTasks, getTaskLists, createTask, completeTask, uncompleteTask, updateTask, deleteTask } from './tasks.js';
+import { getMemos, createMemo, deleteMemo, uploadImage, uploadFile, uploadAudio } from './memo.js';
+import { generateLiffHtml } from './liff.js';
+import { sendLineMessage } from './line.js';
 import {
   rateLimit,
   securityHeaders,
@@ -14,6 +24,15 @@ import {
   requestLogger,
   validateInput
 } from './security.js';
+
+// 環境変数のデフォルト値
+const DEV_AGENT_URL = process.env.DEV_AGENT_URL || env.DEV_AGENT_URL || 'http://35.221.93.66:8080';
+
+// CORS設定ヘルパー（統一版）
+function setCorsHeaders(res) {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Credentials', 'true');
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,7 +66,7 @@ app.get('/', (req, res) => {
   res.send('LINE Calendar Bot is running');
 });
 
-// OAuth コールバック
+// OAuth コールバック（静的インポート使用）
 app.get('/oauth/callback', async (req, res) => {
   const { code, state, error } = req.query;
 
@@ -69,12 +88,7 @@ app.get('/oauth/callback', async (req, res) => {
   }
 
   try {
-    const { handleOAuthCallback } = await import('./oauth.js');
-    const { env } = await import('./env-adapter.js');
-    const { registerUserForNotifications } = await import('./app.js');
     await handleOAuthCallback(code, state, env);
-
-    // 認証成功時にユーザーを通知リストに登録
     await registerUserForNotifications(state, env);
 
     res.send(`
@@ -96,10 +110,9 @@ app.get('/oauth/callback', async (req, res) => {
   }
 });
 
-// LIFF アプリ
+// LIFF アプリ（静的インポート使用）
 app.get('/liff', async (req, res) => {
-  const { generateLiffHtml } = await import('./liff.js');
-  const liffId = (process.env.LIFF_ID || 'YOUR_LIFF_ID').trim();
+  const liffId = (process.env.LIFF_ID || env.LIFF_ID || 'YOUR_LIFF_ID').trim();
   const apiBase = `https://${req.get('host')}`;
   let html = generateLiffHtml(liffId, apiBase);
   // キャッシュ回避用のタイムスタンプを埋め込み
@@ -268,9 +281,9 @@ app.get('/api/oauth-debug', async (req, res) => {
   });
 });
 
-// LIFF API: 認証状態確認
+// LIFF API: 認証状態確認（静的インポート使用）
 app.get('/api/auth-status', async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(res);
   const { userId } = req.query;
 
   if (!userId) {
@@ -278,8 +291,6 @@ app.get('/api/auth-status', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
-    const { env } = await import('./env-adapter.js');
     const isAuth = await isUserAuthenticated(userId, env);
     res.json({ authenticated: isAuth });
   } catch (error) {
@@ -288,9 +299,9 @@ app.get('/api/auth-status', async (req, res) => {
   }
 });
 
-// LIFF API: 認証URL取得
+// LIFF API: 認証URL取得（静的インポート使用）
 app.get('/api/auth-url', async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(res);
   const { userId } = req.query;
 
   if (!userId) {
@@ -298,8 +309,6 @@ app.get('/api/auth-url', async (req, res) => {
   }
 
   try {
-    const { getAuthorizationUrl } = await import('./oauth.js');
-    const { env } = await import('./env-adapter.js');
     const authUrl = getAuthorizationUrl(userId, env);
     res.json({ authUrl });
   } catch (error) {
@@ -338,9 +347,9 @@ app.post('/api/auth-revoke', async (req, res) => {
   }
 });
 
-// LIFF API エンドポイント
+// LIFF API エンドポイント（静的インポート使用）
 app.get('/api/events', async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(res);
   const { userId } = req.query;
 
   if (!userId) {
@@ -348,18 +357,11 @@ app.get('/api/events', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
-    const { getUpcomingEvents } = await import('./calendar.js');
-    const { env } = await import('./env-adapter.js');
-    const { registerUserForNotifications } = await import('./app.js');
-
     if (!await isUserAuthenticated(userId, env)) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    // ユーザーを通知リストに登録（LIFF起動時）
     await registerUserForNotifications(userId, env);
-
     const events = await getUpcomingEvents(userId, env, 90);
     res.json(events);
   } catch (err) {
@@ -369,7 +371,7 @@ app.get('/api/events', async (req, res) => {
 });
 
 app.get('/api/tasks', async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(res);
   const { userId } = req.query;
 
   if (!userId) {
@@ -377,10 +379,6 @@ app.get('/api/tasks', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./oauth.js');
-    const { getAllIncompleteTasks } = await import('./tasks.js');
-    const { env } = await import('./env-adapter.js');
-
     if (!await isUserAuthenticated(userId, env)) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
@@ -2239,6 +2237,44 @@ app.get('/api/project/unread', async (req, res) => {
     console.error('Unread check error:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ==================== エラーハンドリング ====================
+
+// 404ハンドラー
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: {
+      code: 'NOT_FOUND',
+      message: `Cannot ${req.method} ${req.path}`
+    }
+  });
+});
+
+// 統一エラーハンドラー
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+
+  if (statusCode >= 500) {
+    console.error('Server Error:', {
+      path: req.path,
+      method: req.method,
+      error: err.message,
+      stack: err.stack
+    });
+  }
+
+  res.status(statusCode).json({
+    success: false,
+    error: {
+      code: err.code || 'INTERNAL_ERROR',
+      message: process.env.NODE_ENV === 'production' && statusCode >= 500
+        ? 'Internal Server Error'
+        : message
+    }
+  });
 });
 
 // サーバー起動
