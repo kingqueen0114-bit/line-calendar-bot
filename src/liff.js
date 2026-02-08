@@ -5307,8 +5307,22 @@ export function generateLiffHtml(liffId, apiBase) {
 
     let selectedTagIds = [];
 
+    function setupEventTagSelectorHandler() {
+      const container = document.getElementById('event-tag-selector');
+      if (!container || container._tagHandlerSet) return;
+      container._tagHandlerSet = true;
+      container.addEventListener('click', function(e) {
+        const chip = e.target.closest('.event-tag-chip');
+        if (chip) {
+          const tagId = chip.dataset.tagId;
+          console.log('Tag clicked:', tagId, 'current selectedTagIds:', selectedTagIds);
+          toggleEventTag(tagId);
+        }
+      });
+    }
+
     function renderEventTagSelector(selectedIds = []) {
-      selectedTagIds = selectedIds || [];
+      selectedTagIds = selectedIds ? selectedIds.slice() : [];
       const container = document.getElementById('event-tag-selector');
       if (!container) return;
 
@@ -5324,14 +5338,8 @@ export function generateLiffHtml(liffId, apiBase) {
           '</div>';
       }).join('');
 
-      // イベントデリゲーションでクリックを処理
-      container.onclick = function(e) {
-        const chip = e.target.closest('.event-tag-chip');
-        if (chip) {
-          const tagId = chip.dataset.tagId;
-          toggleEventTag(tagId);
-        }
-      };
+      // 一度だけハンドラーをセットアップ
+      setupEventTagSelectorHandler();
     }
 
     function toggleEventTag(tagId) {
@@ -5341,7 +5349,16 @@ export function generateLiffHtml(liffId, apiBase) {
       } else {
         selectedTagIds.splice(index, 1);
       }
-      renderEventTagSelector(selectedTagIds);
+      console.log('After toggle, selectedTagIds:', selectedTagIds);
+      // HTMLのみ更新（ハンドラーは再設定しない）
+      const container = document.getElementById('event-tag-selector');
+      if (!container || userTags.length === 0) return;
+      container.innerHTML = userTags.map(function(tag) {
+        const isSelected = selectedTagIds.includes(tag.id);
+        return '<div class="event-tag-chip ' + (isSelected ? 'selected' : '') + '" data-tag-id="' + tag.id + '" style="background:' + (isSelected ? tag.color : '#e0e0e0') + ';color:' + (isSelected ? '#fff' : '#666') + ';padding:6px 12px;border-radius:16px;font-size:12px;cursor:pointer;transition:all 0.2s;">' +
+          escapeHtml(tag.name) +
+          '</div>';
+      }).join('');
     }
 
     function openEventModal(isNew = true) {
@@ -6251,9 +6268,11 @@ export function generateLiffHtml(liffId, apiBase) {
             // 更新処理
             const apiEndpoint = isLocalEvent ? '/api/local-events' : '/api/events';
             const bodyData = { userId, eventId: editingEvent.id, title, date, isAllDay, startTime, endTime, location, url, memo, reminders };
-            if (isLocalEvent) {
+            // ローカルイベントまたはGoogle Calendar以外の場合はタグを含める
+            if (isLocalEvent || !googleCalendarSync) {
               bodyData.tagIds = selectedTagIds;
             }
+            console.log('Updating event with tagIds:', selectedTagIds, 'isLocalEvent:', isLocalEvent, 'bodyData:', bodyData);
             const response = await fetch(API_BASE + apiEndpoint, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
