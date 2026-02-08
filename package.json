@@ -26,6 +26,7 @@
   "license": "ISC",
   "dependencies": {
     "@google-cloud/firestore": "^7.3.0",
+    "@google-cloud/secret-manager": "^6.1.1",
     "@google-cloud/storage": "^7.7.0",
     "@line/line-bot-mcp-server": "^0.4.2",
     "canvas": "^3.2.1",
