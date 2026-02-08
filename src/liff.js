@@ -5319,10 +5319,19 @@ export function generateLiffHtml(liffId, apiBase) {
 
       container.innerHTML = userTags.map(function(tag) {
         const isSelected = selectedTagIds.includes(tag.id);
-        return '<div class="event-tag-chip ' + (isSelected ? 'selected' : '') + '" data-tag-id="' + tag.id + '" onclick="toggleEventTag(\\'' + tag.id + '\\')" style="background:' + (isSelected ? tag.color : '#e0e0e0') + ';color:' + (isSelected ? '#fff' : '#666') + ';padding:6px 12px;border-radius:16px;font-size:12px;cursor:pointer;transition:all 0.2s;">' +
+        return '<div class="event-tag-chip ' + (isSelected ? 'selected' : '') + '" data-tag-id="' + tag.id + '" style="background:' + (isSelected ? tag.color : '#e0e0e0') + ';color:' + (isSelected ? '#fff' : '#666') + ';padding:6px 12px;border-radius:16px;font-size:12px;cursor:pointer;transition:all 0.2s;">' +
           escapeHtml(tag.name) +
           '</div>';
       }).join('');
+
+      // イベントデリゲーションでクリックを処理
+      container.onclick = function(e) {
+        const chip = e.target.closest('.event-tag-chip');
+        if (chip) {
+          const tagId = chip.dataset.tagId;
+          toggleEventTag(tagId);
+        }
+      };
     }
 
     function toggleEventTag(tagId) {
@@ -5605,10 +5614,19 @@ export function generateLiffHtml(liffId, apiBase) {
       }
 
       container.innerHTML = userTags.map(function(tag) {
-        return '<div class="tag-chip" onclick="openTagModal(\\'' + tag.id + '\\')" style="background:' + tag.color + ';color:#fff;padding:6px 12px;border-radius:16px;font-size:13px;cursor:pointer;">' +
+        return '<div class="tag-chip" data-tag-id="' + tag.id + '" style="background:' + tag.color + ';color:#fff;padding:6px 12px;border-radius:16px;font-size:13px;cursor:pointer;">' +
           escapeHtml(tag.name) +
           '</div>';
       }).join('');
+
+      // イベントデリゲーションでクリックを処理
+      container.onclick = function(e) {
+        const chip = e.target.closest('.tag-chip');
+        if (chip) {
+          const tagId = chip.dataset.tagId;
+          openTagModal(tagId);
+        }
+      };
     }
 
     function openTagModal(tagId) {
