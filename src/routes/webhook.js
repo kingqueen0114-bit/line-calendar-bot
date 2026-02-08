@@ -17,13 +17,30 @@ router.post('/', rateLimit('webhook'), async (req, res) => {
     const signature = req.headers['x-line-signature'];
     const channelSecret = process.env.LINE_CHANNEL_SECRET;
 
+    // LINEの検証リクエスト（eventsが空またはundefined）は署名チェックをスキップ
+    if (!req.body.events || req.body.events.length === 0) {
+      console.log('Webhook verification request (empty events), responding 200');
+      return res.sendStatus(200);
+    }
+
+    // 署名検証
+    if (!signature) {
+      console.error('Missing signature header');
+      return res.status(401).send('Missing signature');
+    }
+
+    if (!channelSecret) {
+      console.error('Channel secret not configured');
+      return res.status(500).send('Server configuration error');
+    }
+
     const hash = crypto
       .createHmac('SHA256', channelSecret)
       .update(req.rawBody)
       .digest('base64');
 
     if (hash !== signature) {
-      console.error('Invalid signature');
+      console.error('Invalid signature. Expected:', hash, 'Got:', signature);
       return res.status(401).send('Invalid signature');
     }
 
