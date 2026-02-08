@@ -1,0 +1,177 @@
+# Cloud Monitoring Alert Policies for LINE Calendar Bot
+
+# 1. High Error Rate Alert (5xx errors)
+---
+displayName: "LINE Calendar Bot - High 5xx Error Rate"
+documentation:
+  content: |
+    The LINE Calendar Bot service is experiencing a high rate of 5xx errors.
+    This indicates server-side issues that need immediate attention.
+
+    Steps to investigate:
+    1. Check Cloud Run logs for error details
+    2. Review recent deployments
+    3. Check external dependencies (Firestore, Storage)
+  mimeType: text/markdown
+conditions:
+  - displayName: "5xx Error Rate > 5%"
+    conditionThreshold:
+      filter: |
+        resource.type="cloud_run_revision"
+        resource.labels.service_name="line-calendar-bot"
+        metric.type="run.googleapis.com/request_count"
+        metric.labels.response_code_class="5xx"
+      comparison: COMPARISON_GT
+      thresholdValue: 0.05
+      duration: 300s
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_RATE
+          crossSeriesReducer: REDUCE_SUM
+          groupByFields:
+            - resource.service_name
+combiner: OR
+enabled: true
+notificationChannels: []
+alertStrategy:
+  autoClose: 604800s
+
+---
+# 2. High Latency Alert
+displayName: "LINE Calendar Bot - High Request Latency"
+documentation:
+  content: |
+    The LINE Calendar Bot service is experiencing high request latency.
+    This may impact user experience.
+
+    Steps to investigate:
+    1. Check container instance count - may need more instances
+    2. Review CPU and memory utilization
+    3. Check database query performance
+  mimeType: text/markdown
+conditions:
+  - displayName: "P95 Latency > 3 seconds"
+    conditionThreshold:
+      filter: |
+        resource.type="cloud_run_revision"
+        resource.labels.service_name="line-calendar-bot"
+        metric.type="run.googleapis.com/request_latencies"
+      comparison: COMPARISON_GT
+      thresholdValue: 3000
+      duration: 300s
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_DELTA
+          crossSeriesReducer: REDUCE_PERCENTILE_95
+          groupByFields:
+            - resource.service_name
+combiner: OR
+enabled: true
+notificationChannels: []
+alertStrategy:
+  autoClose: 604800s
+
+---
+# 3. Container Instance Count Alert
+displayName: "LINE Calendar Bot - High Instance Count"
+documentation:
+  content: |
+    The LINE Calendar Bot service has scaled to a high number of instances.
+    This may indicate unexpected traffic or a potential issue.
+
+    Steps to investigate:
+    1. Check request rate - is there unusual traffic?
+    2. Review recent changes that might cause performance issues
+    3. Consider adjusting autoscaling settings
+  mimeType: text/markdown
+conditions:
+  - displayName: "Instance Count > 10"
+    conditionThreshold:
+      filter: |
+        resource.type="cloud_run_revision"
+        resource.labels.service_name="line-calendar-bot"
+        metric.type="run.googleapis.com/container/instance_count"
+      comparison: COMPARISON_GT
+      thresholdValue: 10
+      duration: 300s
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_MAX
+          crossSeriesReducer: REDUCE_SUM
+          groupByFields:
+            - resource.service_name
+combiner: OR
+enabled: true
+notificationChannels: []
+alertStrategy:
+  autoClose: 604800s
+
+---
+# 4. Memory Utilization Alert
+displayName: "LINE Calendar Bot - High Memory Utilization"
+documentation:
+  content: |
+    The LINE Calendar Bot service is experiencing high memory utilization.
+    This may lead to out-of-memory errors and container restarts.
+
+    Steps to investigate:
+    1. Review recent code changes for memory leaks
+    2. Check if memory limit needs to be increased
+    3. Look for inefficient data processing
+  mimeType: text/markdown
+conditions:
+  - displayName: "Memory Utilization > 90%"
+    conditionThreshold:
+      filter: |
+        resource.type="cloud_run_revision"
+        resource.labels.service_name="line-calendar-bot"
+        metric.type="run.googleapis.com/container/memory/utilizations"
+      comparison: COMPARISON_GT
+      thresholdValue: 0.9
+      duration: 300s
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_MEAN
+          crossSeriesReducer: REDUCE_MEAN
+          groupByFields:
+            - resource.service_name
+combiner: OR
+enabled: true
+notificationChannels: []
+alertStrategy:
+  autoClose: 604800s
+
+---
+# 5. CPU Utilization Alert
+displayName: "LINE Calendar Bot - High CPU Utilization"
+documentation:
+  content: |
+    The LINE Calendar Bot service is experiencing high CPU utilization.
+    This may indicate inefficient code or unexpected load.
+
+    Steps to investigate:
+    1. Review recent code changes for CPU-intensive operations
+    2. Check if CPU allocation needs to be increased
+    3. Look for infinite loops or blocking operations
+  mimeType: text/markdown
+conditions:
+  - displayName: "CPU Utilization > 80%"
+    conditionThreshold:
+      filter: |
+        resource.type="cloud_run_revision"
+        resource.labels.service_name="line-calendar-bot"
+        metric.type="run.googleapis.com/container/cpu/utilizations"
+      comparison: COMPARISON_GT
+      thresholdValue: 0.8
+      duration: 300s
+      aggregations:
+        - alignmentPeriod: 60s
+          perSeriesAligner: ALIGN_MEAN
+          crossSeriesReducer: REDUCE_MEAN
+          groupByFields:
+            - resource.service_name
+combiner: OR
+enabled: true
+notificationChannels: []
+alertStrategy:
+  autoClose: 604800s

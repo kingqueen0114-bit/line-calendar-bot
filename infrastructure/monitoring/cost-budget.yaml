@@ -1,0 +1,39 @@
+# Cloud Billing Budget for LINE Calendar Bot
+# This file defines budget alerts to monitor and control costs
+
+displayName: "LINE Calendar Bot - Monthly Budget"
+budgetFilter:
+  # Filter to include only this project's costs
+  projects:
+    - "projects/YOUR_PROJECT_ID"
+  # Optional: filter by specific services
+  # services:
+  #   - "services/E234-6C53-E6BD"  # Cloud Run
+  #   - "services/9662-B51E-5089"  # Firestore
+  #   - "services/95FF-2EF5-5EA1"  # Cloud Storage
+  # Optional: filter by labels
+  # labels:
+  #   app: line-calendar-bot
+
+amount:
+  # Set monthly budget (in USD)
+  specifiedAmount:
+    currencyCode: "USD"
+    units: "100"  # $100/month
+
+# Threshold rules - send notifications at different spending levels
+thresholdRules:
+  - thresholdPercent: 0.5   # 50% of budget
+    spendBasis: CURRENT_SPEND
+  - thresholdPercent: 0.75  # 75% of budget
+    spendBasis: CURRENT_SPEND
+  - thresholdPercent: 0.9   # 90% of budget
+    spendBasis: CURRENT_SPEND
+  - thresholdPercent: 1.0   # 100% of budget
+    spendBasis: CURRENT_SPEND
+  - thresholdPercent: 1.2   # 120% of budget (overage alert)
+    spendBasis: CURRENT_SPEND
+
+# Notification channels will be added here
+# allUpdatesRule:
+#   pubsubTopic: "projects/YOUR_PROJECT_ID/topics/budget-alerts"
