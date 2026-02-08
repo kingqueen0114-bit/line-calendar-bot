@@ -9,6 +9,7 @@ import { env } from '../env-adapter.js';
 import { handleOAuthCallback } from '../oauth.js';
 import { registerUserForNotifications } from '../app.js';
 import { generateLiffHtml } from '../liff.js';
+import { getAppVersion, getCacheBuster, getVersionInfo } from '../utils/version.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,16 +64,24 @@ router.get('/oauth/callback', async (req, res) => {
 router.get('/liff', async (req, res) => {
   const liffId = (process.env.LIFF_ID || env.LIFF_ID || 'YOUR_LIFF_ID').trim();
   const apiBase = `https://${req.get('host')}`;
+  const versionInfo = getVersionInfo();
+
   let html = generateLiffHtml(liffId, apiBase);
-  html = html.replace('</head>', `<!-- build: ${Date.now()} --></head>`);
+
+  // バージョン情報をHTMLに埋め込む
+  html = html.replace('</head>', `
+    <!-- App Version: ${versionInfo.fullVersion} -->
+    <!-- Build Time: ${versionInfo.buildTime} -->
+    <script>window.APP_VERSION = '${versionInfo.fullVersion}';</script>
+    </head>`);
+
+  // キャッシュ制御ヘッダー（短時間キャッシュ + ETag）
   res.set({
-    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-    'Pragma': 'no-cache',
-    'Expires': '0',
-    'Surrogate-Control': 'no-store',
-    'ETag': `"${Date.now()}"`,
-    'Vary': '*'
+    'Cache-Control': 'public, max-age=300, must-revalidate', // 5分キャッシュ
+    'ETag': `"${versionInfo.cacheBuster}"`,
+    'X-App-Version': versionInfo.fullVersion
   });
+
   res.type('html').send(html);
 });
 
@@ -80,13 +89,24 @@ router.get('/liff', async (req, res) => {
 router.get('/liff2', async (req, res) => {
   const liffId = (process.env.LIFF_ID || env.LIFF_ID || 'YOUR_LIFF_ID').trim();
   const apiBase = `https://${req.get('host')}`;
+  const versionInfo = getVersionInfo();
+
   let html = generateLiffHtml(liffId, apiBase);
-  html = html.replace('</head>', `<!-- build: ${Date.now()} --></head>`);
+
+  // バージョン情報をHTMLに埋め込む
+  html = html.replace('</head>', `
+    <!-- App Version: ${versionInfo.fullVersion} (no-cache) -->
+    <script>window.APP_VERSION = '${versionInfo.fullVersion}';</script>
+    </head>`);
+
+  // 完全にキャッシュを無効化
   res.set({
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
-    'Expires': '0'
+    'Expires': '0',
+    'X-App-Version': versionInfo.fullVersion
   });
+
   res.type('html').send(html);
 });
 

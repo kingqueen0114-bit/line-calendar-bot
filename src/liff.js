@@ -2930,6 +2930,67 @@ export function generateLiffHtml(liffId, apiBase) {
     const LIFF_ID = '${liffId}';
     const API_BASE = '${apiBase}';
 
+    // ========================================
+    // バージョン管理・自動更新
+    // ========================================
+    function checkAppVersion() {
+      const currentVersion = window.APP_VERSION || 'unknown';
+      const storedVersion = localStorage.getItem('app_version');
+
+      console.log('[Version Check] Current:', currentVersion, 'Stored:', storedVersion);
+
+      if (storedVersion && storedVersion !== currentVersion) {
+        console.log('[Version Check] New version detected, reloading...');
+        localStorage.setItem('app_version', currentVersion);
+
+        // 更新通知を表示してリロード
+        if (typeof showToast === 'function') {
+          showToast('新しいバージョンが利用可能です。更新中...');
+        }
+
+        setTimeout(() => {
+          // キャッシュをクリアしてリロード
+          window.location.reload(true);
+        }, 1000);
+
+        return true; // 更新が必要
+      }
+
+      // 初回またはバージョン変更なし
+      localStorage.setItem('app_version', currentVersion);
+      return false; // 更新不要
+    }
+
+    // 定期的にバージョンをチェック（5分ごと）
+    function startVersionPolling() {
+      setInterval(async () => {
+        try {
+          const response = await fetch(API_BASE + '/liff', {
+            method: 'HEAD',
+            cache: 'no-cache'
+          });
+
+          const serverVersion = response.headers.get('X-App-Version');
+          const currentVersion = window.APP_VERSION;
+
+          if (serverVersion && serverVersion !== currentVersion) {
+            console.log('[Version Poll] Server version changed:', serverVersion);
+            localStorage.setItem('app_version', serverVersion);
+
+            if (typeof showToast === 'function') {
+              showToast('新しいバージョンが利用可能です。更新しています...');
+            }
+
+            setTimeout(() => {
+              window.location.reload(true);
+            }, 2000);
+          }
+        } catch (err) {
+          console.error('[Version Poll] Error:', err);
+        }
+      }, 5 * 60 * 1000); // 5分ごと
+    }
+
     let currentDate = new Date();
     let selectedDate = new Date();
     let currentView = localStorage.getItem('defaultView') || 'month';
@@ -3014,6 +3075,14 @@ export function generateLiffHtml(liffId, apiBase) {
         userName = profile.displayName;
         document.getElementById('user-name').textContent = profile.displayName;
         document.getElementById('settings-username').textContent = profile.displayName;
+
+        // バージョンチェック（更新が必要な場合はここで終了）
+        if (checkAppVersion()) {
+          return; // リロード待ち
+        }
+
+        // 定期バージョンチェックを開始
+        startVersionPolling();
 
         // 同期設定を読み込み
         await loadSyncSettings();
