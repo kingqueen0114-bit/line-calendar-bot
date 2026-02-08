@@ -19,7 +19,7 @@ eventsRouter.get('/', requireUserId, asyncHandler(async (req, res) => {
 }));
 
 eventsRouter.post('/', asyncHandler(async (req, res) => {
-  const { userId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders, tagIds } = req.body;
+  const { userId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders } = req.body;
 
   if (!userId || !title || !date) {
     return res.status(400).json({ error: 'userId, title, date required' });
@@ -33,8 +33,7 @@ eventsRouter.post('/', asyncHandler(async (req, res) => {
     isAllDay: isAllDay || false,
     location,
     url,
-    memo,
-    tagIds
+    memo
   };
 
   const result = await createLocalEvent(eventData, userId, env);
@@ -67,7 +66,7 @@ eventsRouter.post('/', asyncHandler(async (req, res) => {
 }));
 
 eventsRouter.put('/', asyncHandler(async (req, res) => {
-  const { userId, eventId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders, tagIds } = req.body;
+  const { userId, eventId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders } = req.body;
 
   if (!userId || !eventId) {
     return res.status(400).json({ error: 'userId, eventId required' });
@@ -92,8 +91,7 @@ eventsRouter.put('/', asyncHandler(async (req, res) => {
     endTime: endTime || '10:00',
     isAllDay: isAllDay || false,
     location,
-    description,
-    tagIds
+    description
   };
 
   const result = await updateLocalEvent(eventId, eventData, userId, env);

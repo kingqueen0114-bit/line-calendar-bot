@@ -20,7 +20,6 @@ import projectRouter from './routes/project.js';
 import webhookRouter from './routes/webhook.js';
 import { eventsRouter, tasksRouter } from './routes/local.js';
 import sharedRouter from './routes/shared.js';
-import tagsRouter from './routes/tags.js';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -61,9 +60,6 @@ app.use('/', liffRouter);
 // API（/api/*）
 app.use('/api', apiRouter);
 
-// タグ（/api/tags）
-app.use('/api/tags', tagsRouter);
-
 // ローカルイベント（/api/local-events）
 app.use('/api/local-events', eventsRouter);
 
@@ -100,7 +96,6 @@ app.listen(PORT, () => {
   console.log('Routes registered:');
   console.log('  - LIFF: /, /liff, /liff2, /oauth/callback, /claude-chat');
   console.log('  - API: /api/*');
-  console.log('  - Tags: /api/tags');
   console.log('  - Local Events: /api/local-events');
   console.log('  - Local Tasks: /api/local-tasks');
   console.log('  - Shared: /api/shared-events, /api/shared-tasks, /api/shared-tasklists, /api/projects');

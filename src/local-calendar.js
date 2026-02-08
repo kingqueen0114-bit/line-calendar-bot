@@ -23,8 +23,7 @@ export async function createLocalEvent(eventData, userId, env) {
     description: '',
     created: new Date().toISOString(),
     updated: new Date().toISOString(),
-    isLocal: true,
-    tagIds: eventData.tagIds || []
+    isLocal: true
   };
 
   // 終日予定かどうかで分岐
@@ -168,9 +167,6 @@ export async function updateLocalEvent(eventId, eventData, userId, env) {
   }
   if (eventData.description !== undefined) {
     existingEvent.description = eventData.description;
-  }
-  if (eventData.tagIds !== undefined) {
-    existingEvent.tagIds = eventData.tagIds;
   }
   if (eventData.date) {
     if (eventData.isAllDay) {
