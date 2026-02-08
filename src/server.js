@@ -24,6 +24,7 @@ import {
   requestLogger,
   validateInput
 } from './security.js';
+import tagsRouter from './routes/tags.js';
 
 // 環境変数のデフォルト値
 const DEV_AGENT_URL = process.env.DEV_AGENT_URL || env.DEV_AGENT_URL || 'http://35.221.93.66:8080';
@@ -1040,7 +1041,7 @@ app.get('/api/shared-events', async (req, res) => {
 // 共有カレンダーに予定作成
 app.post('/api/shared-events', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, projectId, title, date, startTime, endTime, isAllDay, location, notifyMembers } = req.body;
+  const { userId, projectId, title, date, startTime, endTime, isAllDay, location, notifyMembers, tagIds } = req.body;
 
   if (!userId || !projectId || !title || !date) {
     return res.status(400).json({ error: 'userId, projectId, title, date required' });
@@ -1070,7 +1071,8 @@ app.post('/api/shared-events', async (req, res) => {
       startTime: startTime || null,
       endTime: endTime || null,
       isAllDay: isAllDay || false,
-      location
+      location,
+      tagIds: tagIds || []
     };
 
     const event = await createSharedEvent(eventData, projectId, userId, env);
@@ -1586,7 +1588,7 @@ app.get('/api/local-events', async (req, res) => {
 // ローカルイベント作成
 app.post('/api/local-events', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders } = req.body;
+  const { userId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders, tagIds } = req.body;
 
   if (!userId || !title || !date) {
     return res.status(400).json({ error: 'userId, title, date required' });
@@ -1604,7 +1606,8 @@ app.post('/api/local-events', async (req, res) => {
       isAllDay: isAllDay || false,
       location,
       url,
-      memo
+      memo,
+      tagIds: tagIds || []
     };
 
     const result = await createLocalEvent(eventData, userId, env);
@@ -1645,7 +1648,7 @@ app.post('/api/local-events', async (req, res) => {
 // ローカルイベント更新
 app.put('/api/local-events', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, eventId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders } = req.body;
+  const { userId, eventId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders, tagIds } = req.body;
 
   if (!userId || !eventId) {
     return res.status(400).json({ error: 'userId, eventId required' });
@@ -1678,7 +1681,8 @@ app.put('/api/local-events', async (req, res) => {
       endTime: endTime || '10:00',
       isAllDay: isAllDay || false,
       location,
-      description
+      description,
+      tagIds
     };
 
     const result = await updateLocalEvent(eventId, eventData, userId, env);
@@ -2238,6 +2242,9 @@ app.get('/api/project/unread', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ==================== タグ管理 ====================
+app.use('/api/tags', tagsRouter);
 
 // ==================== エラーハンドリング ====================
 

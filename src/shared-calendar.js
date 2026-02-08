@@ -17,6 +17,7 @@ export async function createSharedEvent(eventData, projectId, userId, env) {
     endTime: eventData.endTime || null,
     isAllDay: eventData.isAllDay || false,
     location: eventData.location || null,
+    tagIds: eventData.tagIds || [],
     createdBy: userId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -124,6 +125,7 @@ export function formatSharedEventForDisplay(event) {
       projectId: event.projectId,
       projectName: event.projectName,
       projectColor: event.projectColor,
+      tagIds: event.tagIds || [],
       isShared: true
     };
   } else {
@@ -135,6 +137,7 @@ export function formatSharedEventForDisplay(event) {
       projectId: event.projectId,
       projectName: event.projectName,
       projectColor: event.projectColor,
+      tagIds: event.tagIds || [],
       isShared: true
     };
   }

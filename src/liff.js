@@ -2080,6 +2080,15 @@ export function generateLiffHtml(liffId, apiBase) {
           </div>
         </div>
         <div class="settings-group">
+          <div class="settings-group-title">タグ管理</div>
+          <div id="tag-list-container" style="padding:8px 16px;">
+            <div id="tag-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>
+          </div>
+          <div class="settings-item clickable" onclick="openTagModal()">
+            <span class="settings-item-label" style="color:var(--primary);">+ 新規タグ作成</span>
+          </div>
+        </div>
+        <div class="settings-group">
           <div class="settings-group-title">表示設定</div>
           <div class="settings-item">
             <span class="settings-item-label">カレンダー初期表示</span>
@@ -2225,6 +2234,10 @@ export function generateLiffHtml(liffId, apiBase) {
         <div class="form-group">
           <label class="form-label">メモ（任意）</label>
           <textarea class="form-input" id="event-memo" placeholder="メモを入力" rows="2" style="resize:none;"></textarea>
+        </div>
+        <div class="form-group" id="event-tags-group">
+          <label class="form-label">タグ</label>
+          <div id="event-tag-selector" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
         </div>
         <div class="form-group" id="event-reminder-group">
           <label class="form-label">リマインダー</label>
@@ -2409,6 +2422,13 @@ export function generateLiffHtml(liffId, apiBase) {
             <div>
               <div class="event-detail-label">リマインダー</div>
               <div class="event-detail-value" id="event-detail-reminder"></div>
+            </div>
+          </div>
+          <div class="event-detail-row" id="event-detail-tags-row" style="display:none;">
+            <svg class="event-detail-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58s1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41s-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>
+            <div>
+              <div class="event-detail-label">タグ</div>
+              <div class="event-detail-value" id="event-detail-tags" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
             </div>
           </div>
           <div class="event-detail-row" id="event-detail-calendar-row">
@@ -2728,6 +2748,42 @@ export function generateLiffHtml(liffId, apiBase) {
     </div>
   </div>
 
+  <!-- タグ管理モーダル -->
+  <div class="modal-overlay" id="tag-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="tag-modal-title">タグを作成</h3>
+        <button class="modal-close" onclick="closeTagModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">タグ名</label>
+          <input type="text" class="form-input" id="tag-name-input" placeholder="例: 仕事、プライベート">
+        </div>
+        <div class="form-group">
+          <label class="form-label">カラー</label>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <input type="color" id="tag-color-input" value="#06c755" style="width:50px;height:40px;border:none;cursor:pointer;border-radius:8px;">
+            <span id="tag-color-preview" style="display:inline-block;width:100px;height:40px;border-radius:8px;background:#06c755;"></span>
+          </div>
+          <div class="color-picker" id="tag-color-picker" style="margin-top:8px;">
+            <div class="color-option" data-color="#ff4757" style="background:#ff4757;" title="重要"></div>
+            <div class="color-option" data-color="#ff7f50" style="background:#ff7f50;" title="注意"></div>
+            <div class="color-option" data-color="#ffd93d" style="background:#ffd93d;" title="メモ"></div>
+            <div class="color-option selected" data-color="#06c755" style="background:#06c755;" title="仕事"></div>
+            <div class="color-option" data-color="#4dabf7" style="background:#4dabf7;" title="個人"></div>
+            <div class="color-option" data-color="#a855f7" style="background:#a855f7;" title="趣味"></div>
+            <div class="color-option" data-color="#ff6b9d" style="background:#ff6b9d;" title="家族"></div>
+            <div class="color-option" data-color="#868e96" style="background:#868e96;" title="その他"></div>
+          </div>
+        </div>
+        <input type="hidden" id="editing-tag-id">
+        <button class="btn btn-primary" onclick="saveTag()" style="margin-bottom:12px;">保存</button>
+        <button class="btn btn-danger" id="delete-tag-btn" onclick="deleteCurrentTag()" style="display:none;">削除</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 使い方モーダル -->
   <div class="modal-overlay" id="help-modal">
     <div class="modal" style="max-height:90vh;">
@@ -3022,7 +3078,7 @@ export function generateLiffHtml(liffId, apiBase) {
         await checkGoogleAuthStatus();
 
         // 同期設定に基づいてデータをロード
-        await Promise.all([loadEvents(), loadTasks(), loadTaskLists(), loadMemos(), loadProjects(), loadSharedEvents(), loadSharedTaskLists(), loadSharedTasks()]);
+        await Promise.all([loadEvents(), loadTasks(), loadTaskLists(), loadMemos(), loadProjects(), loadSharedEvents(), loadSharedTaskLists(), loadSharedTasks(), loadUserTags()]);
         renderCalendar();
         renderTasks();
         renderMemos();
@@ -3565,7 +3621,16 @@ export function generateLiffHtml(liffId, apiBase) {
         eventsToShow.forEach(event => {
           const bgColor = event.isShared && event.projectColor ? event.projectColor : 'var(--primary)';
           const sharedClass = event.isShared ? ' shared' : '';
-          html += '<div class="day-event' + sharedClass + '" style="background:' + bgColor + ';">' + (event.summary || '予定') + '</div>';
+          let tagDots = '';
+          if (event.tagIds && event.tagIds.length > 0 && userTags.length > 0) {
+            const eventTags = event.tagIds.map(function(id) { return userTags.find(function(t) { return t.id === id; }); }).filter(Boolean);
+            if (eventTags.length > 0) {
+              tagDots = '<span class="event-tag-dots" style="margin-left:4px;">' +
+                eventTags.slice(0, 3).map(function(t) { return '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + t.color + ';margin-right:2px;"></span>'; }).join('') +
+                '</span>';
+            }
+          }
+          html += '<div class="day-event' + sharedClass + '" style="background:' + bgColor + ';">' + escapeHtml(event.summary || '予定') + tagDots + '</div>';
         });
 
         if (dayEvents.length > maxEventsToShow) {
@@ -3815,6 +3880,23 @@ export function generateLiffHtml(liffId, apiBase) {
         document.getElementById('event-detail-memo-row').style.display = 'none';
       }
 
+      // タグ
+      const tagsRow = document.getElementById('event-detail-tags-row');
+      const tagsContainer = document.getElementById('event-detail-tags');
+      if (event.tagIds && event.tagIds.length > 0 && userTags.length > 0) {
+        const eventTags = event.tagIds.map(function(id) { return userTags.find(function(t) { return t.id === id; }); }).filter(Boolean);
+        if (eventTags.length > 0) {
+          tagsContainer.innerHTML = eventTags.map(function(t) {
+            return '<span style="display:inline-block;padding:4px 10px;border-radius:12px;font-size:12px;background:' + t.color + ';color:#fff;">' + escapeHtml(t.name) + '</span>';
+          }).join('');
+          tagsRow.style.display = 'flex';
+        } else {
+          tagsRow.style.display = 'none';
+        }
+      } else {
+        tagsRow.style.display = 'none';
+      }
+
       // カレンダー
       if (isShared && event.projectName) {
         document.getElementById('event-detail-calendar').textContent = event.projectName + ' (共有)';
@@ -3922,6 +4004,10 @@ export function generateLiffHtml(liffId, apiBase) {
       const urlLine = lines.find(l => l.startsWith('http'));
       document.getElementById('event-url').value = urlLine || '';
       document.getElementById('event-memo').value = lines.filter(l => !l.startsWith('http')).join('\\n').trim();
+
+      // タグを読み込んで表示
+      const eventTagIds = editingEvent.tagIds || [];
+      renderEventTagSelector(eventTagIds);
 
       // リマインダーをリセット
       document.getElementById('event-reminder-day-before').checked = false;
@@ -5219,8 +5305,39 @@ export function generateLiffHtml(liffId, apiBase) {
       select.innerHTML = html;
     }
 
+    let selectedTagIds = [];
+
+    function renderEventTagSelector(selectedIds = []) {
+      selectedTagIds = selectedIds || [];
+      const container = document.getElementById('event-tag-selector');
+      if (!container) return;
+
+      if (userTags.length === 0) {
+        container.innerHTML = '<span style="color:#999;font-size:12px;">タグがありません（設定から作成できます）</span>';
+        return;
+      }
+
+      container.innerHTML = userTags.map(function(tag) {
+        const isSelected = selectedTagIds.includes(tag.id);
+        return '<div class="event-tag-chip ' + (isSelected ? 'selected' : '') + '" data-tag-id="' + tag.id + '" onclick="toggleEventTag(\\'' + tag.id + '\\')" style="background:' + (isSelected ? tag.color : '#e0e0e0') + ';color:' + (isSelected ? '#fff' : '#666') + ';padding:6px 12px;border-radius:16px;font-size:12px;cursor:pointer;transition:all 0.2s;">' +
+          escapeHtml(tag.name) +
+          '</div>';
+      }).join('');
+    }
+
+    function toggleEventTag(tagId) {
+      const index = selectedTagIds.indexOf(tagId);
+      if (index === -1) {
+        selectedTagIds.push(tagId);
+      } else {
+        selectedTagIds.splice(index, 1);
+      }
+      renderEventTagSelector(selectedTagIds);
+    }
+
     function openEventModal(isNew = true) {
       editingEvent = null;
+      selectedTagIds = [];
       updateCalendarSelector('');
       document.getElementById('event-calendar').disabled = false;
       document.getElementById('event-modal-title').textContent = '予定を追加';
@@ -5233,6 +5350,8 @@ export function generateLiffHtml(liffId, apiBase) {
       document.getElementById('event-location').value = '';
       document.getElementById('event-url').value = '';
       document.getElementById('event-memo').value = '';
+      // タグセレクターの初期化
+      renderEventTagSelector([]);
       // リマインダーのリセット
       document.getElementById('event-reminder-day-before').checked = false;
       document.getElementById('event-reminder-morning').checked = false;
@@ -5457,6 +5576,175 @@ export function generateLiffHtml(liffId, apiBase) {
     function closeTaskModal() {
       document.getElementById('task-modal').classList.remove('active');
       editingTask = null;
+    }
+
+    // ==================== タグ管理 ====================
+
+    let userTags = [];
+    let editingTagId = null;
+
+    async function loadUserTags() {
+      try {
+        const response = await fetch(API_BASE + '/api/tags?userId=' + encodeURIComponent(userId));
+        if (response.ok) {
+          userTags = await response.json();
+          renderTagList();
+        }
+      } catch (err) {
+        console.error('Failed to load tags:', err);
+      }
+    }
+
+    function renderTagList() {
+      const container = document.getElementById('tag-list');
+      if (!container) return;
+
+      if (userTags.length === 0) {
+        container.innerHTML = '<span style="color:#999;font-size:13px;">タグがありません</span>';
+        return;
+      }
+
+      container.innerHTML = userTags.map(function(tag) {
+        return '<div class="tag-chip" onclick="openTagModal(\\'' + tag.id + '\\')" style="background:' + tag.color + ';color:#fff;padding:6px 12px;border-radius:16px;font-size:13px;cursor:pointer;">' +
+          escapeHtml(tag.name) +
+          '</div>';
+      }).join('');
+    }
+
+    function openTagModal(tagId) {
+      editingTagId = tagId || null;
+      const modal = document.getElementById('tag-modal');
+      const titleEl = document.getElementById('tag-modal-title');
+      const nameInput = document.getElementById('tag-name-input');
+      const colorInput = document.getElementById('tag-color-input');
+      const colorPreview = document.getElementById('tag-color-preview');
+      const deleteBtn = document.getElementById('delete-tag-btn');
+
+      if (tagId) {
+        const tag = userTags.find(function(t) { return t.id === tagId; });
+        if (tag) {
+          titleEl.textContent = 'タグを編集';
+          nameInput.value = tag.name;
+          colorInput.value = tag.color;
+          colorPreview.style.background = tag.color;
+          deleteBtn.style.display = 'block';
+
+          // カラーピッカーの選択状態を更新
+          document.querySelectorAll('#tag-color-picker .color-option').forEach(function(opt) {
+            opt.classList.toggle('selected', opt.dataset.color === tag.color);
+          });
+        }
+      } else {
+        titleEl.textContent = 'タグを作成';
+        nameInput.value = '';
+        colorInput.value = '#06c755';
+        colorPreview.style.background = '#06c755';
+        deleteBtn.style.display = 'none';
+
+        document.querySelectorAll('#tag-color-picker .color-option').forEach(function(opt) {
+          opt.classList.toggle('selected', opt.dataset.color === '#06c755');
+        });
+      }
+
+      document.getElementById('editing-tag-id').value = tagId || '';
+      modal.classList.add('active');
+
+      // カラーピッカーのイベント設定
+      document.getElementById('tag-color-input').addEventListener('input', function(e) {
+        document.getElementById('tag-color-preview').style.background = e.target.value;
+        document.querySelectorAll('#tag-color-picker .color-option').forEach(function(opt) {
+          opt.classList.remove('selected');
+        });
+      });
+
+      document.querySelectorAll('#tag-color-picker .color-option').forEach(function(opt) {
+        opt.onclick = function() {
+          var color = this.dataset.color;
+          document.getElementById('tag-color-input').value = color;
+          document.getElementById('tag-color-preview').style.background = color;
+          document.querySelectorAll('#tag-color-picker .color-option').forEach(function(o) {
+            o.classList.remove('selected');
+          });
+          this.classList.add('selected');
+        };
+      });
+    }
+
+    function closeTagModal() {
+      document.getElementById('tag-modal').classList.remove('active');
+      editingTagId = null;
+    }
+
+    async function saveTag() {
+      const name = document.getElementById('tag-name-input').value.trim();
+      const color = document.getElementById('tag-color-input').value;
+      const tagId = document.getElementById('editing-tag-id').value;
+
+      if (!name) {
+        showToast('タグ名を入力してください');
+        return;
+      }
+
+      try {
+        const url = API_BASE + '/api/tags';
+        const method = tagId ? 'PUT' : 'POST';
+        const body = {
+          userId: userId,
+          name: name,
+          color: color
+        };
+        if (tagId) {
+          body.tagId = tagId;
+        }
+
+        const response = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (response.ok) {
+          showToast(tagId ? 'タグを更新しました' : 'タグを作成しました');
+          closeTagModal();
+          await loadUserTags();
+        } else {
+          const data = await response.json();
+          showToast(data.error || 'エラーが発生しました');
+        }
+      } catch (err) {
+        console.error('Save tag error:', err);
+        showToast('エラーが発生しました');
+      }
+    }
+
+    async function deleteCurrentTag() {
+      const tagId = document.getElementById('editing-tag-id').value;
+      if (!tagId) return;
+
+      if (!confirm('このタグを削除しますか？')) return;
+
+      try {
+        const response = await fetch(API_BASE + '/api/tags', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: userId,
+            tagId: tagId
+          })
+        });
+
+        if (response.ok) {
+          showToast('タグを削除しました');
+          closeTagModal();
+          await loadUserTags();
+        } else {
+          const data = await response.json();
+          showToast(data.error || 'エラーが発生しました');
+        }
+      } catch (err) {
+        console.error('Delete tag error:', err);
+        showToast('エラーが発生しました');
+      }
     }
 
     function openHelpModal() {
@@ -5933,7 +6221,7 @@ export function generateLiffHtml(liffId, apiBase) {
           await fetch(API_BASE + '/api/shared-events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, projectId, title, date, isAllDay, startTime: isAllDay ? null : startTime, endTime: isAllDay ? null : endTime, location, url, memo, reminders, notifyMembers })
+            body: JSON.stringify({ userId, projectId, title, date, isAllDay, startTime: isAllDay ? null : startTime, endTime: isAllDay ? null : endTime, location, url, memo, reminders, notifyMembers, tagIds: selectedTagIds })
           });
           await loadSharedEvents();
         } else {
@@ -5944,10 +6232,14 @@ export function generateLiffHtml(liffId, apiBase) {
           if (isEditing) {
             // 更新処理
             const apiEndpoint = isLocalEvent ? '/api/local-events' : '/api/events';
+            const bodyData = { userId, eventId: editingEvent.id, title, date, isAllDay, startTime, endTime, location, url, memo, reminders };
+            if (isLocalEvent) {
+              bodyData.tagIds = selectedTagIds;
+            }
             const response = await fetch(API_BASE + apiEndpoint, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId, eventId: editingEvent.id, title, date, isAllDay, startTime, endTime, location, url, memo, reminders })
+              body: JSON.stringify(bodyData)
             });
             if (!response.ok) {
               const err = await response.json();
@@ -5955,11 +6247,16 @@ export function generateLiffHtml(liffId, apiBase) {
             }
           } else {
             // 新規作成
-            const apiEndpoint = (googleCalendarSync && isGoogleAuthenticated) ? '/api/events' : '/api/local-events';
+            const useGoogleCalendar = googleCalendarSync && isGoogleAuthenticated;
+            const apiEndpoint = useGoogleCalendar ? '/api/events' : '/api/local-events';
+            const bodyData = { userId, title, date, isAllDay, startTime, endTime, location, url, memo, reminders };
+            if (!useGoogleCalendar) {
+              bodyData.tagIds = selectedTagIds;
+            }
             const response = await fetch(API_BASE + apiEndpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ userId, title, date, isAllDay, startTime, endTime, location, url, memo, reminders })
+              body: JSON.stringify(bodyData)
             });
             if (!response.ok) {
               const err = await response.json();
