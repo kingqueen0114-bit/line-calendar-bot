@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>診断ページ - LINE Calendar Bot</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #06c755;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+    h2 {
+      color: #333;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      font-size: 18px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #06c755;
+    }
+    .status {
+      margin: 10px 0;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      border-left: 4px solid #ccc;
+    }
+    .status.success {
+      background: #e8f5e9;
+      border-left-color: #4caf50;
+    }
+    .status.error {
+      background: #ffebee;
+      border-left-color: #f44336;
+    }
+    .status.warning {
+      background: #fff3e0;
+      border-left-color: #ff9800;
+    }
+    .label {
+      font-weight: bold;
+      color: #666;
+      margin-right: 8px;
+    }
+    .value {
+      color: #333;
+      font-family: 'Courier New', monospace;
+    }
+    button {
+      background: #06c755;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px 5px 10px 0;
+    }
+    button:hover {
+      background: #05b34a;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    .btn-danger {
+      background: #f44336;
+    }
+    .btn-danger:hover {
+      background: #da190b;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .loading {
+      color: #666;
+      font-style: italic;
+    }
+  </style>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 診断ページ</h1>
+    <p>アプリの状態を確認して問題を特定します。</p>
+
+    <h2>1. バージョン情報</h2>
+    <div class="status" id="version-status">
+      <div><span class="label">現在のバージョン:</span><span class="value" id="current-version">読み込み中...</span></div>
+      <div><span class="label">保存されたバージョン:</span><span class="value" id="stored-version">読み込み中...</span></div>
+      <div><span class="label">バージョン一致:</span><span class="value" id="version-match">読み込み中...</span></div>
+    </div>
+
+    <h2>2. LIFF 認証状態</h2>
+    <div class="status" id="liff-status">
+      <div><span class="label">LIFF初期化:</span><span class="value" id="liff-init">読み込み中...</span></div>
+      <div><span class="label">ログイン状態:</span><span class="value" id="liff-login">読み込み中...</span></div>
+      <div><span class="label">ユーザーID:</span><span class="value" id="user-id">読み込み中...</span></div>
+      <div><span class="label">ユーザー名:</span><span class="value" id="user-name">読み込み中...</span></div>
+    </div>
+
+    <h2>3. API接続テスト</h2>
+    <div class="status" id="api-status">
+      <div><span class="label">API Base URL:</span><span class="value" id="api-base">読み込み中...</span></div>
+      <div><span class="label">ローカルイベントAPI:</span><span class="value" id="api-events">読み込み中...</span></div>
+      <div><span class="label">ローカルタスクAPI:</span><span class="value" id="api-tasks">読み込み中...</span></div>
+      <div><span class="label">メモAPI:</span><span class="value" id="api-memos">読み込み中...</span></div>
+    </div>
+
+    <h2>4. データ読み込み状態</h2>
+    <div class="status" id="data-status">
+      <div><span class="label">イベント数:</span><span class="value" id="events-count">読み込み中...</span></div>
+      <div><span class="label">タスク数:</span><span class="value" id="tasks-count">読み込み中...</span></div>
+      <div><span class="label">メモ数:</span><span class="value" id="memos-count">読み込み中...</span></div>
+    </div>
+
+    <h2>5. エラーログ</h2>
+    <div class="status" id="error-status">
+      <pre id="error-log">エラーなし</pre>
+    </div>
+
+    <h2>6. 操作</h2>
+    <button onclick="clearStorageAndReload()">LocalStorageをクリアして再読み込み</button>
+    <button onclick="testAPIs()">API接続を再テスト</button>
+    <button onclick="copyDiagnostics()" class="btn-danger">診断結果をコピー</button>
+  </div>
+
+  <script>
+    const LIFF_ID = '2006593633-7jp4ogp0';
+    const API_BASE = window.location.origin;
+
+    let userId = null;
+    let errors = [];
+
+    // エラーをキャプチャ
+    window.onerror = function(msg, url, line, col, error) {
+      const errorMsg = `${msg} (${url}:${line}:${col})`;
+      errors.push(errorMsg);
+      updateErrorLog();
+      return false;
+    };
+
+    async function init() {
+      try {
+        // バージョン情報
+        const currentVersion = window.APP_VERSION || '不明';
+        const storedVersion = localStorage.getItem('app_version') || '未保存';
+        const versionMatch = currentVersion === storedVersion ? '✅ 一致' : '❌ 不一致';
+
+        document.getElementById('current-version').textContent = currentVersion;
+        document.getElementById('stored-version').textContent = storedVersion;
+        document.getElementById('version-match').textContent = versionMatch;
+
+        const versionStatus = document.getElementById('version-status');
+        versionStatus.className = currentVersion === storedVersion ? 'status success' : 'status warning';
+
+        // API Base
+        document.getElementById('api-base').textContent = API_BASE;
+
+        // LIFF初期化
+        document.getElementById('liff-init').textContent = '初期化中...';
+        await liff.init({ liffId: LIFF_ID });
+        document.getElementById('liff-init').textContent = '✅ 成功';
+
+        const isLoggedIn = liff.isLoggedIn();
+        document.getElementById('liff-login').textContent = isLoggedIn ? '✅ ログイン済み' : '❌ 未ログイン';
+
+        const liffStatus = document.getElementById('liff-status');
+
+        if (isLoggedIn) {
+          const profile = await liff.getProfile();
+          userId = profile.userId;
+          document.getElementById('user-id').textContent = userId;
+          document.getElementById('user-name').textContent = profile.displayName;
+          liffStatus.className = 'status success';
+
+          // API テスト
+          await testAPIs();
+        } else {
+          document.getElementById('user-id').textContent = 'ログインが必要';
+          document.getElementById('user-name').textContent = 'ログインが必要';
+          liffStatus.className = 'status error';
+
+          document.getElementById('api-events').textContent = 'ログインが必要';
+          document.getElementById('api-tasks').textContent = 'ログインが必要';
+          document.getElementById('api-memos').textContent = 'ログインが必要';
+          document.getElementById('events-count').textContent = 'ログインが必要';
+          document.getElementById('tasks-count').textContent = 'ログインが必要';
+          document.getElementById('memos-count').textContent = 'ログインが必要';
+        }
+
+      } catch (error) {
+        errors.push('初期化エラー: ' + error.message);
+        updateErrorLog();
+        document.getElementById('liff-init').textContent = '❌ 失敗: ' + error.message;
+        document.getElementById('liff-status').className = 'status error';
+      }
+    }
+
+    async function testAPIs() {
+      if (!userId) {
+        alert('ログインが必要です');
+        return;
+      }
+
+      try {
+        // ローカルイベント
+        const eventsResponse = await fetch(`${API_BASE}/api/local-events?userId=${userId}&_t=${Date.now()}`, { cache: 'no-store' });
+        if (eventsResponse.ok) {
+          const events = await eventsResponse.json();
+          document.getElementById('api-events').textContent = `✅ 接続成功 (${eventsResponse.status})`;
+          document.getElementById('events-count').textContent = `${events.length}件`;
+        } else {
+          document.getElementById('api-events').textContent = `❌ エラー (${eventsResponse.status})`;
+          document.getElementById('events-count').textContent = 'エラー';
+        }
+
+        // ローカルタスク
+        const tasksResponse = await fetch(`${API_BASE}/api/local-tasks?userId=${userId}&_t=${Date.now()}`, { cache: 'no-store' });
+        if (tasksResponse.ok) {
+          const tasks = await tasksResponse.json();
+          document.getElementById('api-tasks').textContent = `✅ 接続成功 (${tasksResponse.status})`;
+          document.getElementById('tasks-count').textContent = `${tasks.length}件`;
+        } else {
+          document.getElementById('api-tasks').textContent = `❌ エラー (${tasksResponse.status})`;
+          document.getElementById('tasks-count').textContent = 'エラー';
+        }
+
+        // メモ
+        const memosResponse = await fetch(`${API_BASE}/api/memos?userId=${userId}&_t=${Date.now()}`, { cache: 'no-store' });
+        if (memosResponse.ok) {
+          const memos = await memosResponse.json();
+          document.getElementById('api-memos').textContent = `✅ 接続成功 (${memosResponse.status})`;
+          document.getElementById('memos-count').textContent = `${memos.length}件`;
+        } else {
+          document.getElementById('api-memos').textContent = `❌ エラー (${memosResponse.status})`;
+          document.getElementById('memos-count').textContent = 'エラー';
+        }
+
+        const apiStatus = document.getElementById('api-status');
+        apiStatus.className = 'status success';
+        const dataStatus = document.getElementById('data-status');
+        dataStatus.className = 'status success';
+
+      } catch (error) {
+        errors.push('API テストエラー: ' + error.message);
+        updateErrorLog();
+        document.getElementById('api-status').className = 'status error';
+      }
+    }
+
+    function updateErrorLog() {
+      const errorLog = document.getElementById('error-log');
+      if (errors.length === 0) {
+        errorLog.textContent = 'エラーなし';
+        document.getElementById('error-status').className = 'status success';
+      } else {
+        errorLog.textContent = errors.join('\n');
+        document.getElementById('error-status').className = 'status error';
+      }
+    }
+
+    function clearStorageAndReload() {
+      if (confirm('LocalStorageをクリアして再読み込みしますか？')) {
+        localStorage.clear();
+        location.reload();
+      }
+    }
+
+    function copyDiagnostics() {
+      const diagnostics = `
+診断結果 - LINE Calendar Bot
+=============================
+
+バージョン情報:
+- 現在: ${document.getElementById('current-version').textContent}
+- 保存: ${document.getElementById('stored-version').textContent}
+- 一致: ${document.getElementById('version-match').textContent}
+
+LIFF認証:
+- 初期化: ${document.getElementById('liff-init').textContent}
+- ログイン: ${document.getElementById('liff-login').textContent}
+- UserID: ${document.getElementById('user-id').textContent}
+- 名前: ${document.getElementById('user-name').textContent}
+
+API接続:
+- Base: ${document.getElementById('api-base').textContent}
+- Events: ${document.getElementById('api-events').textContent}
+- Tasks: ${document.getElementById('api-tasks').textContent}
+- Memos: ${document.getElementById('api-memos').textContent}
+
+データ:
+- Events: ${document.getElementById('events-count').textContent}
+- Tasks: ${document.getElementById('tasks-count').textContent}
+- Memos: ${document.getElementById('memos-count').textContent}
+
+エラー:
+${document.getElementById('error-log').textContent}
+      `.trim();
+
+      navigator.clipboard.writeText(diagnostics).then(() => {
+        alert('診断結果をクリップボードにコピーしました');
+      }).catch(() => {
+        alert('コピーに失敗しました。手動でコピーしてください。');
+        console.log(diagnostics);
+      });
+    }
+
+    // 初期化実行
+    init();
+  </script>
+</body>
+</html>

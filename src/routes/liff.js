@@ -133,6 +133,25 @@ router.get('/claude-chat', async (req, res) => {
   }
 });
 
+// 診断ページ
+router.get('/diagnostic', (req, res) => {
+  const filePath = path.join(__dirname, '..', '..', 'public', 'diagnostic.html');
+  try {
+    let html = fs.readFileSync(filePath, 'utf-8');
+    // LIFF_IDを実際の値に置き換え
+    const liffId = (process.env.LIFF_ID || env.LIFF_ID || 'YOUR_LIFF_ID').trim();
+    html = html.replace('2006593633-7jp4ogp0', liffId);
+
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Content-Type': 'text/html; charset=utf-8'
+    });
+    res.send(html);
+  } catch (err) {
+    res.status(500).send('診断ページの読み込みに失敗しました');
+  }
+});
+
 // ヘルスチェック
 router.get('/', (req, res) => {
   res.send('LINE Calendar Bot is running');
