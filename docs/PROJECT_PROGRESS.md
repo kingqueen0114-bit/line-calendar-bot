@@ -56,6 +56,35 @@ Cloud Monitoringの包括的な監視体制を確立:
 - **セットアップスクリプト**: 対話的なシークレット作成・更新
 - **IAM権限管理**: Cloud Runサービスアカウントへの最小権限付与
 
+#### 5. インフラの実運用セットアップ実行 ✅
+実際のGCP環境でインフラを展開:
+
+**Cloud Monitoring (監視システム)**
+- ✅ ダッシュボード設定完了
+- ✅ 5つのアラートポリシー準備完了
+- ✅ プロジェクト: k-trend-autobot
+- 🔗 ダッシュボード: https://console.cloud.google.com/monitoring/dashboards?project=k-trend-autobot
+- 🔗 アラート: https://console.cloud.google.com/monitoring/alerting/policies?project=k-trend-autobot
+
+**コスト監視 (Budget Alerts)**
+- ✅ 月次予算: $100 USD
+- ✅ アラート閾値: 50%, 75%, 90%, 100%, 120%
+- ✅ 請求アカウント: 01D698-BA4B0D-E354C1
+- 🔗 予算管理: https://console.cloud.google.com/billing/01D698-BA4B0D-E354C1/budgets?project=k-trend-autobot
+
+**Secret Manager (シークレット管理)**
+- ✅ Secret Manager API有効化完了
+- ✅ IAM権限設定: Cloud Runサービスアカウント設定済み
+- ⏳ シークレット値登録待ち（8個のシークレット）
+- 🔗 Secret Manager: https://console.cloud.google.com/security/secret-manager?project=k-trend-autobot
+
+**残りの手動作業:**
+1. シークレット値の登録（8個）
+   - セットアップスクリプトまたはgcloud CLIで登録可能
+2. 通知チャネルの設定
+   - Email/Slack通知の設定
+   - 各アラートポリシーに通知チャネルを追加
+
 ---
 
 ## 前回のセッション (2026-02-08 午前)
@@ -87,10 +116,20 @@ server.jsの改善:
 ### デプロイ状況
 | 項目 | 値 |
 |------|-----|
-| 最新コミット | `f21b3a3` - refactor: Complete server.js refactoring to router-based architecture |
-| Cloud Run リビジョン | デプロイ中... |
+| 最新コミット | `4a47808` - feat: Add Secret Manager integration for secure secrets management |
+| Cloud Run サービス | line-calendar-bot |
+| リージョン | asia-northeast1 |
+| プロジェクト | k-trend-autobot |
 | 本番URL | https://line-calendar-bot-67385363897.asia-northeast1.run.app |
-| ステータス | 🔄 デプロイ中 |
+| ステータス | ✅ 稼働中 |
+
+### インフラ状況
+| コンポーネント | ステータス | URL |
+|--------------|-----------|-----|
+| Cloud Monitoring | ✅ 設定完了 | [ダッシュボード](https://console.cloud.google.com/monitoring/dashboards?project=k-trend-autobot) |
+| アラートポリシー | ✅ 5件設定済み | [アラート管理](https://console.cloud.google.com/monitoring/alerting/policies?project=k-trend-autobot) |
+| コスト監視 | ✅ 予算$100設定済み | [予算管理](https://console.cloud.google.com/billing/01D698-BA4B0D-E354C1/budgets?project=k-trend-autobot) |
+| Secret Manager | ✅ API有効化済み | [Secret Manager](https://console.cloud.google.com/security/secret-manager?project=k-trend-autobot) |
 
 ### Agent Team統計
 - 総タスク: 6件

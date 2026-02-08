@@ -5,7 +5,7 @@ displayName: "LINE Calendar Bot - Monthly Budget"
 budgetFilter:
   # Filter to include only this project's costs
   projects:
-    - "projects/YOUR_PROJECT_ID"
+    - "projects/k-trend-autobot"
   # Optional: filter by specific services
   # services:
   #   - "services/E234-6C53-E6BD"  # Cloud Run
@@ -36,4 +36,4 @@ thresholdRules:
 
 # Notification channels will be added here
 # allUpdatesRule:
-#   pubsubTopic: "projects/YOUR_PROJECT_ID/topics/budget-alerts"
+#   pubsubTopic: "projects/k-trend-autobot/topics/budget-alerts"
