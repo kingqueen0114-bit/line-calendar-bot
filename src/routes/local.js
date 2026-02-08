@@ -7,20 +7,18 @@ import { setCors, requireUserId, asyncHandler } from '../middleware/common.js';
 import { getLocalEvents, createLocalEvent, updateLocalEvent, deleteLocalEvent, getLocalEvent } from '../local-calendar.js';
 import { getLocalTasks, createLocalTask, completeLocalTask, uncompleteLocalTask, updateLocalTask, deleteLocalTask, getLocalCompletedTasks } from '../local-tasks.js';
 
-const router = Router();
+// ==================== ローカルイベントルーター ====================
+const eventsRouter = Router();
 
-router.use(setCors);
+eventsRouter.use(setCors);
 
-// ==================== ローカルイベント ====================
-// Note: これらは /api/local-events にマウントされる
-
-router.get('/', requireUserId, asyncHandler(async (req, res) => {
+eventsRouter.get('/', requireUserId, asyncHandler(async (req, res) => {
   const { days } = req.query;
   const events = await getLocalEvents(req.userId, env, parseInt(days) || 90);
   res.json(events);
 }));
 
-router.post('/events', asyncHandler(async (req, res) => {
+eventsRouter.post('/', asyncHandler(async (req, res) => {
   const { userId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders } = req.body;
 
   if (!userId || !title || !date) {
@@ -67,7 +65,7 @@ router.post('/events', asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
-router.put('/events', asyncHandler(async (req, res) => {
+eventsRouter.put('/', asyncHandler(async (req, res) => {
   const { userId, eventId, title, date, startTime, endTime, isAllDay, location, url, memo, reminders } = req.body;
 
   if (!userId || !eventId) {
@@ -127,7 +125,7 @@ router.put('/events', asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
-router.delete('/events', asyncHandler(async (req, res) => {
+eventsRouter.delete('/', asyncHandler(async (req, res) => {
   const { userId, eventId } = req.body;
   if (!userId || !eventId) {
     return res.status(400).json({ error: 'userId, eventId required' });
@@ -137,14 +135,17 @@ router.delete('/events', asyncHandler(async (req, res) => {
   res.json({ success: true });
 }));
 
-// ==================== ローカルタスク ====================
+// ==================== ローカルタスクルーター ====================
+const tasksRouter = Router();
 
-router.get('/tasks', requireUserId, asyncHandler(async (req, res) => {
+tasksRouter.use(setCors);
+
+tasksRouter.get('/', requireUserId, asyncHandler(async (req, res) => {
   const tasks = await getLocalTasks(req.userId, env);
   res.json(tasks);
 }));
 
-router.post('/tasks', asyncHandler(async (req, res) => {
+tasksRouter.post('/', asyncHandler(async (req, res) => {
   const { userId, title, due, listName, reminders } = req.body;
 
   if (!userId || !title) {
@@ -172,7 +173,7 @@ router.post('/tasks', asyncHandler(async (req, res) => {
   res.json(result);
 }));
 
-router.post('/tasks/complete', asyncHandler(async (req, res) => {
+tasksRouter.post('/complete', asyncHandler(async (req, res) => {
   const { userId, taskId } = req.body;
   if (!userId || !taskId) {
     return res.status(400).json({ error: 'userId, taskId required' });
@@ -182,7 +183,7 @@ router.post('/tasks/complete', asyncHandler(async (req, res) => {
   res.json({ success: true });
 }));
 
-router.post('/tasks/uncomplete', asyncHandler(async (req, res) => {
+tasksRouter.post('/uncomplete', asyncHandler(async (req, res) => {
   const { userId, taskId } = req.body;
   if (!userId || !taskId) {
     return res.status(400).json({ error: 'userId, taskId required' });
@@ -192,7 +193,7 @@ router.post('/tasks/uncomplete', asyncHandler(async (req, res) => {
   res.json({ success: true });
 }));
 
-router.post('/tasks/update', asyncHandler(async (req, res) => {
+tasksRouter.post('/update', asyncHandler(async (req, res) => {
   const { userId, taskId, title, due } = req.body;
   if (!userId || !taskId || !title) {
     return res.status(400).json({ error: 'userId, taskId, title required' });
@@ -202,7 +203,7 @@ router.post('/tasks/update', asyncHandler(async (req, res) => {
   res.json({ success: true });
 }));
 
-router.delete('/tasks', asyncHandler(async (req, res) => {
+tasksRouter.delete('/', asyncHandler(async (req, res) => {
   const { userId, taskId } = req.body;
   if (!userId || !taskId) {
     return res.status(400).json({ error: 'userId, taskId required' });
@@ -212,9 +213,13 @@ router.delete('/tasks', asyncHandler(async (req, res) => {
   res.json({ success: true });
 }));
 
-router.get('/tasks/completed', requireUserId, asyncHandler(async (req, res) => {
+tasksRouter.get('/completed', requireUserId, asyncHandler(async (req, res) => {
   const tasks = await getLocalCompletedTasks(req.userId, env);
   res.json(tasks);
 }));
 
-export default router;
+// デフォルトエクスポート（互換性のため）
+export default eventsRouter;
+
+// 名前付きエクスポート
+export { eventsRouter, tasksRouter };

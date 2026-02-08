@@ -4007,6 +4007,7 @@ export function generateLiffHtml(liffId, apiBase) {
 
       // タグを読み込んで表示
       const eventTagIds = editingEvent.tagIds || [];
+      console.log('[TAG DEBUG] editEventFromDetail - editingEvent.tagIds:', JSON.stringify(editingEvent.tagIds), 'eventTagIds:', JSON.stringify(eventTagIds));
       renderEventTagSelector(eventTagIds);
 
       // リマインダーをリセット
@@ -5309,22 +5310,30 @@ export function generateLiffHtml(liffId, apiBase) {
 
     function setupEventTagSelectorHandler() {
       const container = document.getElementById('event-tag-selector');
+      console.log('[TAG DEBUG] setupEventTagSelectorHandler called, container:', !!container, '_tagHandlerSet:', container?._tagHandlerSet);
       if (!container || container._tagHandlerSet) return;
       container._tagHandlerSet = true;
+      console.log('[TAG DEBUG] Setting up click handler on container');
       container.addEventListener('click', function(e) {
+        console.log('[TAG DEBUG] Container clicked, target:', e.target);
         const chip = e.target.closest('.event-tag-chip');
         if (chip) {
           const tagId = chip.dataset.tagId;
-          console.log('Tag clicked:', tagId, 'current selectedTagIds:', selectedTagIds);
+          console.log('[TAG DEBUG] Tag clicked:', tagId, 'current selectedTagIds:', JSON.stringify(selectedTagIds));
           toggleEventTag(tagId);
         }
       });
     }
 
     function renderEventTagSelector(selectedIds = []) {
+      console.log('[TAG DEBUG] renderEventTagSelector called with selectedIds:', JSON.stringify(selectedIds), 'userTags count:', userTags.length);
       selectedTagIds = selectedIds ? selectedIds.slice() : [];
+      console.log('[TAG DEBUG] selectedTagIds set to:', JSON.stringify(selectedTagIds));
       const container = document.getElementById('event-tag-selector');
-      if (!container) return;
+      if (!container) {
+        console.log('[TAG DEBUG] Container not found!');
+        return;
+      }
 
       if (userTags.length === 0) {
         container.innerHTML = '<span style="color:#999;font-size:12px;">タグがありません（設定から作成できます）</span>';
@@ -5337,19 +5346,21 @@ export function generateLiffHtml(liffId, apiBase) {
           escapeHtml(tag.name) +
           '</div>';
       }).join('');
+      console.log('[TAG DEBUG] Chips rendered, calling setupEventTagSelectorHandler');
 
       // 一度だけハンドラーをセットアップ
       setupEventTagSelectorHandler();
     }
 
     function toggleEventTag(tagId) {
+      console.log('[TAG DEBUG] toggleEventTag called with tagId:', tagId, 'before:', JSON.stringify(selectedTagIds));
       const index = selectedTagIds.indexOf(tagId);
       if (index === -1) {
         selectedTagIds.push(tagId);
       } else {
         selectedTagIds.splice(index, 1);
       }
-      console.log('After toggle, selectedTagIds:', selectedTagIds);
+      console.log('[TAG DEBUG] toggleEventTag after:', JSON.stringify(selectedTagIds));
       // HTMLのみ更新（ハンドラーは再設定しない）
       const container = document.getElementById('event-tag-selector');
       if (!container || userTags.length === 0) return;
@@ -6272,7 +6283,7 @@ export function generateLiffHtml(liffId, apiBase) {
             if (isLocalEvent || !googleCalendarSync) {
               bodyData.tagIds = selectedTagIds;
             }
-            console.log('Updating event with tagIds:', selectedTagIds, 'isLocalEvent:', isLocalEvent, 'bodyData:', bodyData);
+            console.log('[TAG DEBUG] submitEvent - Updating event with selectedTagIds:', JSON.stringify(selectedTagIds), 'isLocalEvent:', isLocalEvent, 'googleCalendarSync:', googleCalendarSync, 'bodyData.tagIds:', JSON.stringify(bodyData.tagIds));
             const response = await fetch(API_BASE + apiEndpoint, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },

@@ -18,8 +18,9 @@ import apiRouter from './routes/api.js';
 import backupRouter from './routes/backup.js';
 import projectRouter from './routes/project.js';
 import webhookRouter from './routes/webhook.js';
-import localRouter from './routes/local.js';
+import { eventsRouter, tasksRouter } from './routes/local.js';
 import sharedRouter from './routes/shared.js';
+import tagsRouter from './routes/tags.js';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -60,9 +61,14 @@ app.use('/', liffRouter);
 // API（/api/*）
 app.use('/api', apiRouter);
 
-// ローカル（/api/local-events, /api/local-tasks）
-app.use('/api/local-events', localRouter);
-app.use('/api/local-tasks', localRouter);
+// タグ（/api/tags）
+app.use('/api/tags', tagsRouter);
+
+// ローカルイベント（/api/local-events）
+app.use('/api/local-events', eventsRouter);
+
+// ローカルタスク（/api/local-tasks）
+app.use('/api/local-tasks', tasksRouter);
 
 // 共有（/api/shared-*, /api/projects）
 app.use('/api/shared-events', sharedRouter);
@@ -94,6 +100,10 @@ app.listen(PORT, () => {
   console.log('Routes registered:');
   console.log('  - LIFF: /, /liff, /liff2, /oauth/callback, /claude-chat');
   console.log('  - API: /api/*');
+  console.log('  - Tags: /api/tags');
+  console.log('  - Local Events: /api/local-events');
+  console.log('  - Local Tasks: /api/local-tasks');
+  console.log('  - Shared: /api/shared-events, /api/shared-tasks, /api/shared-tasklists, /api/projects');
   console.log('  - Backup: /api/backup/*');
   console.log('  - Project: /api/project/*');
   console.log('  - Webhook: POST /, /scheduled');
