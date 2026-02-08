@@ -140,7 +140,7 @@ router.get('/diagnostic', (req, res) => {
     let html = fs.readFileSync(filePath, 'utf-8');
     // LIFF_IDを実際の値に置き換え
     const liffId = (process.env.LIFF_ID || env.LIFF_ID || 'YOUR_LIFF_ID').trim();
-    html = html.replace('2006593633-7jp4ogp0', liffId);
+    html = html.replace('__LIFF_ID__', liffId);
 
     res.set({
       'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -148,7 +148,8 @@ router.get('/diagnostic', (req, res) => {
     });
     res.send(html);
   } catch (err) {
-    res.status(500).send('診断ページの読み込みに失敗しました');
+    console.error('Diagnostic page error:', err);
+    res.status(500).send('診断ページの読み込みに失敗しました: ' + err.message);
   }
 });
 
