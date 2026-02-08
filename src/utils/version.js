@@ -37,6 +37,9 @@ function getGitHash() {
   }
 }
 
+// サーバー起動時のタイムスタンプ（固定値）
+const SERVER_START_TIME = Date.now().toString(36);
+
 // ビルドタイムスタンプを生成
 function getBuildTimestamp() {
   // 環境変数からビルド時刻を取得（Cloud Buildで設定可能）
@@ -44,8 +47,8 @@ function getBuildTimestamp() {
     return process.env.BUILD_TIMESTAMP;
   }
 
-  // サーバー起動時刻を使用（開発環境用）
-  return Date.now().toString(36);
+  // サーバー起動時刻を使用（リクエストごとに変わらない固定値）
+  return SERVER_START_TIME;
 }
 
 // コンテンツハッシュを生成
