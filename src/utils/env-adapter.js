@@ -1,7 +1,7 @@
 /**
  * 環境アダプター - Cloudflare Workers の env を Node.js 環境で再現
  */
-import * as storage from './storage.js';
+import * as storage from '../database/storage.js';
 
 // 環境変数をロード
 import dotenv from 'dotenv';
