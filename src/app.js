@@ -294,8 +294,54 @@ async function handleCreateAction(eventData, userId, env) {
 
 // キャンセルアクション
 async function handleCancelAction(eventData, userId, env) {
-  // 簡略化版：実装省略
-  await sendLineMessage(userId, '⚠️ キャンセル機能は準備中です', env.LINE_CHANNEL_ACCESS_TOKEN);
+  try {
+    const keyword = eventData.title || eventData.keyword;
+
+    if (!keyword) {
+      await sendLineMessage(userId, '⚠️ キャンセルしたい予定のキーワードを教えてください。\n\n例: 「ミーティングをキャンセル」', env.LINE_CHANNEL_ACCESS_TOKEN);
+      return;
+    }
+
+    // 今後90日以内の予定からキーワードで検索
+    const events = await getUpcomingEvents(userId, env, 90);
+    const matched = events.filter(e =>
+      e.summary && e.summary.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    if (matched.length === 0) {
+      await sendLineMessage(userId, `❌ 「${keyword}」に一致する予定が見つかりませんでした。`, env.LINE_CHANNEL_ACCESS_TOKEN);
+      return;
+    }
+
+    if (matched.length === 1) {
+      // 1件だけなら即削除
+      await deleteEvent(matched[0].id, userId, env);
+      const dt = formatEventDateTime(matched[0]);
+      await sendLineMessage(userId, `🗑️ 予定をキャンセルしました\n\n📅 ${matched[0].summary}\n⏰ ${dt.dateStr} ${dt.timeStr}`, env.LINE_CHANNEL_ACCESS_TOKEN);
+      return;
+    }
+
+    // 複数候補 → 一覧を表示して選択させる
+    let message = `📅 「${keyword}」に一致する予定が ${matched.length} 件あります\n\n`;
+    matched.slice(0, 10).forEach((event, index) => {
+      const dt = formatEventDateTime(event);
+      message += `${index + 1}. ${event.summary}\n⏰ ${dt.dateStr} ${dt.timeStr}\n\n`;
+    });
+    message += 'キャンセルしたい予定の番号を送信してください（例: 1キャンセル）';
+
+    // 候補をKVに保存（10分間有効）
+    await env.NOTIFICATIONS.put(
+      `pending_cancel_${userId}`,
+      JSON.stringify(matched.slice(0, 10)),
+      { expirationTtl: 600 }
+    );
+    await env.NOTIFICATIONS.put(`last_bot_response_${userId}`, message, { expirationTtl: 300 });
+    await sendLineMessage(userId, message, env.LINE_CHANNEL_ACCESS_TOKEN);
+  } catch (error) {
+    console.error('Cancel action error:', error);
+    if (error.code === 'AUTH_EXPIRED') throw error;
+    await sendLineMessage(userId, '⚠️ 予定のキャンセルに失敗しました。もう一度お試しください。', env.LINE_CHANNEL_ACCESS_TOKEN);
+  }
 }
 
 // 完了アクション

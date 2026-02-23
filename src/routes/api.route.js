@@ -300,6 +300,42 @@ router.delete('/api/events', async (req, res) => {
   }
 });
 
+// 予定更新
+router.post('/api/events/update', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, eventId, title, startTime, endTime, location, description } = req.body;
+
+  if (!userId || !eventId) {
+    return res.status(400).json({ error: 'userId, eventId required' });
+  }
+
+  try {
+    const { isUserAuthenticated } = await import('./services/auth.service.js');
+    const { updateEvent } = await import('./services/google-calendar.service.js');
+    const { env } = await import('./utils/env-adapter.js');
+
+    if (!await isUserAuthenticated(userId, env)) {
+      return res.status(401).json({ error: 'Not authenticated', reauth: true });
+    }
+
+    const updateData = {};
+    if (title) updateData.title = title;
+    if (startTime) updateData.startTime = startTime;
+    if (endTime) updateData.endTime = endTime;
+    if (location !== undefined) updateData.location = location;
+    if (description !== undefined) updateData.description = description;
+
+    const result = await updateEvent(eventId, updateData, userId, env);
+    res.json(result);
+  } catch (err) {
+    console.error('Update event error:', err);
+    if (err.status === 404) {
+      return res.status(404).json({ error: '予定が見つかりません' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // タスクリスト取得
 router.get('/api/tasklists', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');

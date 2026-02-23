@@ -2,12 +2,13 @@
  * Google Tasks API操作
  */
 import { getUserAccessToken } from '../services/auth.service.js';
+import { fetchWithRetry } from '../utils/google-api.js';
 
 // タスクリスト一覧を取得
 export async function getTaskLists(userId, env) {
   const accessToken = await getUserAccessToken(userId, env);
 
-  const response = await fetch(
+  const response = await fetchWithRetry(
     'https://tasks.googleapis.com/tasks/v1/users/@me/lists',
     {
       headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -62,7 +63,7 @@ export async function createTask(taskData, userId, env) {
     task.notes = notesContent;
   }
 
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `https://tasks.googleapis.com/tasks/v1/lists/${targetList.id}/tasks`,
     {
       method: 'POST',
@@ -95,7 +96,7 @@ export async function getUpcomingTasks(userId, env) {
   const allTasks = [];
 
   for (const list of taskLists) {
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks?showCompleted=false&showHidden=false`,
       {
         headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -129,7 +130,7 @@ export async function getAllIncompleteTasks(userId, env) {
   const allTasks = [];
 
   for (const list of taskLists) {
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks?showCompleted=false&showHidden=false`,
       {
         headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -191,7 +192,7 @@ export async function getAllIncompleteTasks(userId, env) {
 export async function completeTask(taskId, listId, userId, env) {
   const accessToken = await getUserAccessToken(userId, env);
 
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks/${taskId}`,
     {
       method: 'PATCH',
@@ -220,7 +221,7 @@ export async function updateTask(taskId, listId, updates, userId, env) {
     body.due = new Date(updates.due).toISOString();
   }
 
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks/${taskId}`,
     {
       method: 'PATCH',
@@ -244,7 +245,7 @@ export async function updateTask(taskId, listId, updates, userId, env) {
 export async function deleteTask(taskId, listId, userId, env) {
   const accessToken = await getUserAccessToken(userId, env);
 
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks/${taskId}`,
     {
       method: 'DELETE',
@@ -270,7 +271,7 @@ export async function getAllCompletedTasks(userId, env) {
   const allTasks = [];
 
   for (const list of taskLists) {
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `https://tasks.googleapis.com/tasks/v1/lists/${list.id}/tasks?showCompleted=true&showHidden=true`,
       {
         headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -304,7 +305,7 @@ export async function getAllCompletedTasks(userId, env) {
 export async function uncompleteTask(taskId, listId, userId, env) {
   const accessToken = await getUserAccessToken(userId, env);
 
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks/${taskId}`,
     {
       method: 'PATCH',

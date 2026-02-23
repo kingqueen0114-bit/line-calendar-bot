@@ -2,6 +2,7 @@
  * Google Calendar API操作
  */
 import { getUserAccessToken } from '../services/auth.service.js';
+import { fetchWithRetry } from '../utils/google-api.js';
 
 // イベントを作成
 export async function createEvent(eventData, userId, env) {
@@ -13,7 +14,7 @@ export async function createEvent(eventData, userId, env) {
   // テスト：まずGETリクエストで接続確認
   console.log('Testing Calendar API connection with GET...');
   try {
-    const testResponse = await fetch(
+    const testResponse = await fetchWithRetry(
       'https://www.googleapis.com/calendar/v3/calendars/primary',
       {
         headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -90,7 +91,7 @@ export async function createEvent(eventData, userId, env) {
   console.log('Event data:', JSON.stringify(event));
 
   try {
-    const response = await fetch(
+    const response = await fetchWithRetry(
       'https://www.googleapis.com/calendar/v3/calendars/primary/events',
       {
         method: 'POST',
@@ -159,7 +160,7 @@ export async function getUpcomingEvents(userId, env, daysAhead = 365, daysBehind
 
   await Promise.all(calendars.map(async (calendarId) => {
     try {
-      const response = await fetch(
+      const response = await fetchWithRetry(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
         {
           headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -239,7 +240,7 @@ export async function searchEvents(keyword, userId, env) {
       console.log('searchEvents: Making API request to:', url);
 
       try {
-        const response = await fetch(url, {
+        const response = await fetchWithRetry(url, {
           headers: { 'Authorization': `Bearer ${accessToken}` }
         });
 
@@ -295,7 +296,7 @@ export async function searchEventsInRange(timeMin, timeMax, keyword, userId, env
 
   await Promise.all(calendars.map(async (calendarId) => {
     try {
-      const response = await fetch(
+      const response = await fetchWithRetry(
         `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
         {
           headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -327,7 +328,7 @@ export async function searchEventsInRange(timeMin, timeMax, keyword, userId, env
 export async function deleteEvent(eventId, userId, env) {
   const accessToken = await getUserAccessToken(userId, env);
 
-  const response = await fetch(
+  const response = await fetchWithRetry(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
     {
       method: 'DELETE',
@@ -348,7 +349,7 @@ export async function updateEvent(eventId, updateData, userId, env) {
   const accessToken = await getUserAccessToken(userId, env);
 
   // まず既存の予定を取得
-  const getResponse = await fetch(
+  const getResponse = await fetchWithRetry(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
     {
       headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -382,7 +383,7 @@ export async function updateEvent(eventId, updateData, userId, env) {
   }
 
   // 更新をPUT
-  const updateResponse = await fetch(
+  const updateResponse = await fetchWithRetry(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
     {
       method: 'PUT',
@@ -406,7 +407,7 @@ export async function updateEvent(eventId, updateData, userId, env) {
 export async function getCalendarList(userId, env) {
   const accessToken = await getUserAccessToken(userId, env);
 
-  const response = await fetch(
+  const response = await fetchWithRetry(
     'https://www.googleapis.com/calendar/v3/users/me/calendarList',
     {
       headers: { 'Authorization': `Bearer ${accessToken}` }
