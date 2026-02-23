@@ -8,6 +8,8 @@ import apiRoute from './routes/api.route.js';
 import webhookRoute from './routes/webhook.route.js';
 import { runScheduledTask } from './app.js';
 
+import { apiRateLimit } from './middleware/rate-limit.js';
+
 const app = express();
 const PORT = process.env.PORT || 8080;
 
@@ -19,6 +21,15 @@ app.use(express.json({
   }
 }));
 
+// CORS
+app.use((req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 // ヘルスチェック
 app.get('/', (req, res) => {
   res.send('LINE Calendar Bot is running');
@@ -27,7 +38,7 @@ app.get('/', (req, res) => {
 // Routes
 app.use('/liff', liffRoute);
 app.use('/oauth', authRoute);
-app.use('/api', apiRoute);
+app.use('/api', apiRateLimit, apiRoute);
 app.use('/webhook', webhookRoute);
 
 // LINE Webhook はルート(/)にもマウントしておく（互換性確保用）

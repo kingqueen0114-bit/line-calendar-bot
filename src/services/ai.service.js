@@ -1,3 +1,5 @@
+import { fallbackParse } from './ai-fallback.js';
+
 /**
  * Gemini APIで自然言語からイベント情報を抽出（リトライ付き）
  * @param {string} text - ユーザーの入力テキスト
@@ -26,7 +28,12 @@ export async function parseEventText(text, apiKey, context = null) {
     }
   }
 
-  console.error('Gemini API failed after', maxRetries, 'attempts');
+  console.error('Gemini API failed after', maxRetries, 'attempts, using fallback parser');
+  const fallbackResult = fallbackParse(text);
+  if (fallbackResult) {
+    console.log('Fallback parser matched:', fallbackResult.action);
+    return fallbackResult;
+  }
   return null;
 }
 
@@ -189,25 +196,25 @@ ${contextSection}
     console.log('Gemini API: Fetch completed, status:', response.status);
     const data = await response.json();
     console.log('Gemini API: JSON parsed');
-    
+
     // エラーチェック
     if (!response.ok || !data.candidates || data.candidates.length === 0) {
       console.error('Gemini API Error Response:', JSON.stringify(data));
       return null;
     }
-    
+
     const resultText = data.candidates[0].content.parts[0].text;
     console.log('Gemini API Response Text:', resultText); // デバッグ用
-    
+
     // JSONを抽出（マークダウンコードブロック対応）
-    const jsonMatch = resultText.match(/```json\n([\s\S]*?)\n```/) || 
-                      resultText.match(/\{[\s\S]*\}/);
-    
+    const jsonMatch = resultText.match(/```json\n([\s\S]*?)\n```/) ||
+      resultText.match(/\{[\s\S]*\}/);
+
     if (jsonMatch) {
       const jsonText = jsonMatch[1] || jsonMatch[0];
       return JSON.parse(jsonText);
     }
-    
+
     throw new Error('JSON解析失敗');
   } catch (error) {
     console.error('Gemini API Error:', error);

@@ -1,4 +1,5 @@
 import express from 'express';
+import { inviteCodeRateLimit } from '../middleware/rate-limit.js';
 import { registerUserForNotifications, updateUserNotificationSettings } from '../app.js';
 
 const router = express.Router();
@@ -558,7 +559,7 @@ router.post('/api/projects', async (req, res) => {
 });
 
 // プロジェクト参加（招待コード）
-router.post('/api/projects/join', async (req, res) => {
+router.post('/api/projects/join', inviteCodeRateLimit, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   const { userId, inviteCode } = req.body;
 
@@ -872,7 +873,7 @@ router.post('/api/shared-tasklists/update', async (req, res) => {
 });
 
 // 共有タスクリストに参加
-router.post('/api/shared-tasklists/join', async (req, res) => {
+router.post('/api/shared-tasklists/join', inviteCodeRateLimit, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   const { userId, inviteCode } = req.body;
 
