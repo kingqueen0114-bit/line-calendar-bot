@@ -17,18 +17,40 @@ export function generateLiffHtml(liffId, apiBase) {
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     :root {
-      --primary: #06c755;
-      --primary-dark: #00b341;
-      --danger: #ff4757;
-      --bg: #f5f7fa;
-      --card: #ffffff;
-      --text: #1a1a1a;
-      --text-secondary: #666666;
-      --text-muted: #999999;
-      --border: #e8e8e8;
-      --shadow: 0 2px 12px rgba(0,0,0,0.08);
+      --primary: #2563EB;
+      --accent: #3B82F6;
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --text: #0F172A;
+      --sub: #94A3B8;
+      --sunday: #EF4444;
+      --saturday: #2563EB;
+      --border: #E2E8F0;
+      --event-color-0: #3B82F6;
+      --event-color-1: #10B981;
+      --event-color-2: #8B5CF6;
+      --event-color-3: #F59E0B;
+      --event-color-4: #EF4444;
+      --event-color-5: #EC4899;
+      /* Template vars (minimal defaults) */
+      --cell-radius: 0px;
+      --cell-border: 0.5px solid var(--border);
+      --cell-gap: 0px;
+      --evt-radius: 3px;
+      --evt-padding: 1px 4px;
+      --evt-font: 9.5px;
+      --tab-radius: 8px;
+      --fab-radius: 50%;
+      --card-shadow: none;
+      --header-font-weight: 600;
+      --day-header-bg: transparent;
+      --evt-border-left: none;
+      --tab-active-bg: var(--card);
+      --tab-active-color: var(--text);
+      --tab-inactive-color: var(--sub);
+      --header-bg: var(--bg);
+      --header-color: var(--text);
       --tab-height: 54px;
-      --header-height: 44px;
       --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
 
@@ -67,62 +89,68 @@ export function generateLiffHtml(liffId, apiBase) {
       bottom: 0;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 8px;
+      padding: 0;
       padding-bottom: calc(70px + var(--safe-bottom));
       display: none;
       -webkit-overflow-scrolling: touch;
     }
-    .section.active { display: block; }
+    .section.active { display: flex; flex-direction: column; }
 
+    /* Tab bar — backdrop-filter translucent */
     .tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
       display: flex;
-      background: var(--card);
-      border-top: 1px solid var(--border);
-      padding-bottom: var(--safe-bottom);
-      flex-shrink: 0;
+      background: color-mix(in srgb, var(--card) 96%, transparent);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 0.5px solid var(--border);
+      padding: 6px 0 env(safe-area-inset-bottom, 18px);
+      z-index: 10;
     }
     .tab-item {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 8px 0;
-      min-height: var(--tab-height);
+      gap: 2px;
       border: none;
       background: transparent;
-      color: var(--text-muted);
-      font-size: 10px;
       cursor: pointer;
-      transition: color 0.2s;
+      padding: 0;
+      transition: all 0.15s;
     }
-    .tab-item.active { color: var(--primary); }
-    .tab-item svg { width: 24px; height: 24px; margin-bottom: 4px; }
+    .tab-icon { font-size: 18px; opacity: 0.35; transition: opacity 0.15s; }
+    .tab-item.active .tab-icon { opacity: 1; }
+    .tab-label { font-size: 9px; font-weight: 600; color: var(--sub); transition: color 0.15s; }
+    .tab-item.active .tab-label { color: var(--primary); }
+    .tab-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--primary); margin-top: -1px; }
     .tab-item.active svg { fill: var(--primary); }
 
     /* FAB */
     .fab {
       position: fixed;
-      bottom: calc(80px + var(--safe-bottom));
-      right: 20px;
-      width: 56px;
-      height: 56px;
+      bottom: calc(56px + 16px);
+      right: 14px;
+      width: 48px;
+      height: 48px;
       background: var(--primary);
       color: white;
       border: none;
-      border-radius: 50%;
-      font-size: 28px;
+      border-radius: var(--fab-radius);
+      font-size: 24px;
       cursor: pointer;
-      box-shadow: var(--fab-shadow, 0 4px 12px rgba(6, 199, 85, 0.4));
+      box-shadow: 0 4px 16px color-mix(in srgb, var(--primary) 30%, transparent);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 100;
+      z-index: 5;
       transition: transform 0.2s, box-shadow 0.2s;
     }
     .fab:active {
       transform: scale(0.95);
-      box-shadow: 0 2px 8px rgba(6, 199, 85, 0.4);
     }
 
     /* モーダル */
@@ -1512,20 +1540,21 @@ export function generateLiffHtml(liffId, apiBase) {
     <!-- 下部タブバー -->
     <div class="tab-bar">
       <button class="tab-item active" data-tab="calendar">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11zM9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
-        <span>カレンダー</span>
+        <span class="tab-icon">📅</span>
+        <span class="tab-label">カレンダー</span>
+        <div class="tab-dot"></div>
       </button>
       <button class="tab-item" data-tab="tasks">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-        <span>タスク</span>
+        <span class="tab-icon">☑️</span>
+        <span class="tab-label">タスク</span>
       </button>
       <button class="tab-item" data-tab="memo">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-        <span>メモ</span>
+        <span class="tab-icon">📝</span>
+        <span class="tab-label">メモ</span>
       </button>
       <button class="tab-item" data-tab="settings">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-        <span>設定</span>
+        <span class="tab-icon">⚙️</span>
+        <span class="tab-label">設定</span>
       </button>
     </div>
   </div>
@@ -1957,6 +1986,76 @@ export function generateLiffHtml(liffId, apiBase) {
     let isGoogleAuthenticated = true; // Will be updated on first API call
     let googleAuthUrl = null;
 
+    // ============================================================
+    // Theme Engine — 6 colors × 4 templates
+    // ============================================================
+    const COLOR_THEMES = {
+      ocean: { name:"Ocean", primary:"#2563EB", accent:"#3B82F6", bg:"#F8FAFC", card:"#FFFFFF", text:"#0F172A", sub:"#94A3B8", sunday:"#EF4444", saturday:"#2563EB", border:"#E2E8F0", eventColors:["#3B82F6","#10B981","#8B5CF6","#F59E0B","#EF4444","#EC4899"] },
+      terracotta: { name:"Terracotta", primary:"#C4733B", accent:"#D4956A", bg:"#FAF9F7", card:"#FFFFFF", text:"#1A1A1A", sub:"#AAAAAA", sunday:"#D4736A", saturday:"#7BA5C4", border:"#F0EDE8", eventColors:["#C4733B","#7BA57B","#9B7BC4","#C4A43B","#D4736A","#C47BA5"] },
+      forest: { name:"Forest", primary:"#16A34A", accent:"#22C55E", bg:"#F0FDF4", card:"#FFFFFF", text:"#14532D", sub:"#6B7280", sunday:"#DC2626", saturday:"#2563EB", border:"#DCFCE7", eventColors:["#16A34A","#0D9488","#7C3AED","#CA8A04","#DC2626","#DB2777"] },
+      midnight: { name:"Midnight", primary:"#818CF8", accent:"#A78BFA", bg:"#0F0F1A", card:"#1A1A2E", text:"#E2E8F0", sub:"#64748B", sunday:"#FB7185", saturday:"#7DD3FC", border:"#1E293B", eventColors:["#818CF8","#34D399","#F472B6","#FBBF24","#FB7185","#38BDF8"] },
+      rose: { name:"Rosé", primary:"#E11D48", accent:"#FB7185", bg:"#FFF1F2", card:"#FFFFFF", text:"#1C1917", sub:"#A8A29E", sunday:"#E11D48", saturday:"#6366F1", border:"#FECDD3", eventColors:["#E11D48","#059669","#7C3AED","#D97706","#DC2626","#DB2777"] },
+      mono: { name:"Mono", primary:"#171717", accent:"#404040", bg:"#FAFAFA", card:"#FFFFFF", text:"#171717", sub:"#A3A3A3", sunday:"#DC2626", saturday:"#2563EB", border:"#E5E5E5", eventColors:["#171717","#525252","#737373","#404040","#171717","#525252"] },
+    };
+
+    function getTemplateVars(tid) {
+      const vars = {
+        minimal: { '--cell-radius':'0px','--cell-border':'0.5px solid var(--border)','--cell-gap':'0px','--evt-radius':'3px','--evt-padding':'1px 4px','--tab-radius':'8px','--fab-radius':'50%','--card-shadow':'none','--header-font-weight':'600','--day-header-bg':'transparent','--evt-border-left':'none','--tab-active-bg':'var(--card)','--tab-active-color':'var(--text)','--tab-inactive-color':'var(--sub)','--header-bg':'var(--bg)','--header-color':'var(--text)' },
+        soft: { '--cell-radius':'10px','--cell-border':'none','--cell-gap':'1px','--evt-radius':'6px','--evt-padding':'2px 5px','--tab-radius':'20px','--fab-radius':'16px','--card-shadow':'0 2px 8px color-mix(in srgb, var(--primary) 10%, transparent)','--header-font-weight':'800','--day-header-bg':'color-mix(in srgb, var(--primary) 8%, transparent)','--evt-border-left':'none','--tab-active-bg':'var(--primary)','--tab-active-color':'#fff','--tab-inactive-color':'var(--sub)','--header-bg':'var(--bg)','--header-color':'var(--text)' },
+        bold: { '--cell-radius':'0px','--cell-border':'1px solid var(--border)','--cell-gap':'0px','--evt-radius':'0px','--evt-padding':'2px 4px','--tab-radius':'0px','--fab-radius':'0px','--card-shadow':'none','--header-font-weight':'900','--day-header-bg':'var(--primary)','--evt-border-left':'2px solid','--tab-active-bg':'#fff','--tab-active-color':'var(--primary)','--tab-inactive-color':'rgba(255,255,255,0.6)','--header-bg':'var(--primary)','--header-color':'#fff' },
+        glass: { '--cell-radius':'8px','--cell-border':'0.5px solid color-mix(in srgb, var(--border) 40%, transparent)','--cell-gap':'0px','--evt-radius':'8px','--evt-padding':'2px 5px','--tab-radius':'12px','--fab-radius':'18px','--card-shadow':'0 4px 24px color-mix(in srgb, var(--border) 50%, transparent)','--header-font-weight':'700','--day-header-bg':'color-mix(in srgb, var(--card) 80%, transparent)','--evt-border-left':'none','--tab-active-bg':'color-mix(in srgb, var(--primary) 12%, transparent)','--tab-active-color':'var(--text)','--tab-inactive-color':'var(--sub)','--header-bg':'var(--bg)','--header-color':'var(--text)' },
+      };
+      return vars[tid] || vars.minimal;
+    }
+
+    let currentColorTheme = 'ocean';
+    let currentTemplate = 'minimal';
+    let calendarBottomView = 'both';
+
+    function applyTheme(colorThemeId, templateId) {
+      const color = COLOR_THEMES[colorThemeId] || COLOR_THEMES.ocean;
+      const tmpl = getTemplateVars(templateId);
+      const root = document.documentElement;
+
+      // Color variables
+      root.style.setProperty('--primary', color.primary);
+      root.style.setProperty('--accent', color.accent);
+      root.style.setProperty('--bg', color.bg);
+      root.style.setProperty('--card', color.card);
+      root.style.setProperty('--text', color.text);
+      root.style.setProperty('--sub', color.sub);
+      root.style.setProperty('--sunday', color.sunday);
+      root.style.setProperty('--saturday', color.saturday);
+      root.style.setProperty('--border', color.border);
+
+      // Event colors
+      color.eventColors.forEach((c, i) => {
+        root.style.setProperty('--event-color-' + i, c);
+      });
+
+      // Template variables
+      Object.entries(tmpl).forEach(([key, value]) => {
+        root.style.setProperty(key, value);
+      });
+
+      // Update body background
+      document.body.style.background = color.bg;
+      document.body.style.color = color.text;
+
+      currentColorTheme = colorThemeId;
+      currentTemplate = templateId;
+    }
+
+    async function saveThemeSettings(settings) {
+      try {
+        await fetch(API_BASE + '/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, settings })
+        });
+      } catch (e) { console.error('Save settings error:', e); }
+    }
+
     const WEEKDAYS_JA = ['日', '月', '火', '水', '木', '金', '土'];
     const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const WEEKDAYS_FULL_JA = ['日曜日', '月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日'];
@@ -1994,6 +2093,17 @@ export function generateLiffHtml(liffId, apiBase) {
         document.getElementById('user-name').textContent = profile.displayName;
         document.getElementById('settings-username').textContent = profile.displayName;
 
+        // Load theme settings from API
+        try {
+          const settingsRes = await fetch(API_BASE + '/api/settings?userId=' + userId);
+          const settings = await settingsRes.json();
+          applyTheme(settings.colorTheme || 'ocean', settings.uiTemplate || 'minimal');
+          calendarBottomView = settings.calendarBottomView || 'both';
+        } catch (e) {
+          applyTheme('ocean', 'minimal');
+          console.error('Settings load error:', e);
+        }
+
         // まずGoogle認証状態を確認
         await checkGoogleAuthStatus();
 
@@ -2008,10 +2118,6 @@ export function generateLiffHtml(liffId, apiBase) {
 
         // 招待リンクからの参加処理
         await handleJoinFromUrl();
-
-        // テーマカラーと表示設定を適用
-        applyThemeColor(themeColor);
-        initDisplaySettings();
       } catch (error) {
         console.error('LIFF initialization failed:', error);
         document.getElementById('user-name').textContent = 'エラー';
@@ -4282,9 +4388,16 @@ export function generateLiffHtml(liffId, apiBase) {
     // ========================================
     document.querySelectorAll('.tab-item').forEach(tab => {
       tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-item').forEach(t => {
+          t.classList.remove('active');
+          const dot = t.querySelector('.tab-dot');
+          if (dot) dot.remove();
+        });
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         tab.classList.add('active');
+        const dot = document.createElement('div');
+        dot.className = 'tab-dot';
+        tab.appendChild(dot);
         currentTab = tab.dataset.tab;
         document.getElementById(currentTab).classList.add('active');
       });

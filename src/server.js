@@ -38,6 +38,7 @@ app.get('/', (req, res) => {
 // Routes
 app.use('/liff', liffRoute);
 app.use('/oauth', authRoute);
+app.use('/auth/google', authRoute); // OAUTH_REDIRECT_URI 互換 (/auth/google/callback)
 app.use('/api', apiRateLimit, apiRoute);
 app.use('/webhook', webhookRoute);
 

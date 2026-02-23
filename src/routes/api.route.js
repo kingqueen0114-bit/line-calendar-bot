@@ -3,6 +3,48 @@ import { inviteCodeRateLimit } from '../middleware/rate-limit.js';
 import { registerUserForNotifications, updateUserNotificationSettings } from '../app.js';
 
 const router = express.Router();
+
+// GET /api/settings — 全設定を返す
+router.get('/api/settings', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ error: 'userId required' });
+
+  try {
+    const { env } = await import('../utils/env-adapter.js');
+    const raw = await env.NOTIFICATIONS.get('settings:' + userId, { type: 'json' });
+    const defaults = {
+      reminderEnabled: true,
+      enabledCalendars: ['primary'],
+      colorTheme: 'ocean',
+      uiTemplate: 'minimal',
+      calendarBottomView: 'both',
+    };
+    res.json({ ...defaults, ...(raw || {}) });
+  } catch (err) {
+    console.error('Get settings error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/settings — 部分更新
+router.post('/api/settings', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, settings } = req.body;
+  if (!userId || !settings) return res.status(400).json({ error: 'userId, settings required' });
+
+  try {
+    const { env } = await import('../utils/env-adapter.js');
+    const current = await env.NOTIFICATIONS.get('settings:' + userId, { type: 'json' }) || {};
+    const updated = { ...current, ...settings };
+    await env.NOTIFICATIONS.put('settings:' + userId, JSON.stringify(updated));
+    res.json({ success: true, settings: updated });
+  } catch (err) {
+    console.error('Save settings error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // LIFF API: 認証状態確認
 router.get('/api/auth-status', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
