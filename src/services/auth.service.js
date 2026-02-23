@@ -6,9 +6,10 @@
 // State parameter validity period (10 minutes)
 const STATE_EXPIRATION = 600;
 
-// Required OAuth scopes
+// Required OAuth scopes (minimized)
 const OAUTH_SCOPES = [
-  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
   'https://www.googleapis.com/auth/tasks'
 ];
 
@@ -145,8 +146,12 @@ export async function refreshUserAccessToken(userId, env) {
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error('Token refresh failed, revoking tokens for user:', userId);
+    // トークンが無効化されたため、保存済みトークンを削除
+    await revokeUserTokens(userId, env);
     const err = new Error(`Token refresh failed: ${errorText}`);
     err.status = 401;
+    err.code = 'AUTH_EXPIRED';
     throw err;
   }
 
@@ -193,7 +198,14 @@ export async function getUserAccessToken(userId, env) {
   const expirationBuffer = 5 * 60 * 1000;
   if (Date.now() >= tokens.expiresAt - expirationBuffer) {
     console.log('Token expired or expiring soon, refreshing...');
-    return await refreshUserAccessToken(userId, env);
+    try {
+      return await refreshUserAccessToken(userId, env);
+    } catch (err) {
+      if (err.code === 'AUTH_EXPIRED') {
+        throw err; // 再認証が必要 — 呼び出し元でハンドリング
+      }
+      throw err;
+    }
   }
 
   return tokens.accessToken;

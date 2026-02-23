@@ -185,11 +185,20 @@ async function handleMessage(event, env, ctx) {
         }
       } catch (error) {
         console.error('Message handling error:', error);
-        await sendLineMessage(
-          userId,
-          '⚠️ 処理中にエラーが発生しました。\n\nもう一度お試しください。',
-          env.LINE_CHANNEL_ACCESS_TOKEN
-        );
+        if (error.code === 'AUTH_EXPIRED') {
+          const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
+          await sendLineMessage(
+            userId,
+            '🔐 Googleアカウントとの連携が切れました。\n\nお手数ですが、下のリンクをタップして再認証してください👇\n\n' + liffUrl,
+            env.LINE_CHANNEL_ACCESS_TOKEN
+          );
+        } else {
+          await sendLineMessage(
+            userId,
+            '⚠️ 処理中にエラーが発生しました。\n\nもう一度お試しください。',
+            env.LINE_CHANNEL_ACCESS_TOKEN
+          );
+        }
       }
     })()
   );
@@ -402,6 +411,18 @@ async function checkAndSendNotifications(env) {
         }
       } catch (userError) {
         console.error(`Notification error for user ${userId}:`, userError);
+        if (userError.code === 'AUTH_EXPIRED') {
+          try {
+            const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
+            await sendLineMessage(
+              userId,
+              '🔐 Googleアカウントとの連携が切れました。\n\nリマインダー通知を続けるには、再認証が必要です👇\n\n' + liffUrl,
+              env.LINE_CHANNEL_ACCESS_TOKEN
+            );
+          } catch (e) {
+            console.error('Failed to send re-auth message:', e);
+          }
+        }
       }
     }
 
