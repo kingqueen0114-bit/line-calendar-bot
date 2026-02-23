@@ -8,9 +8,15 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "deploy:cloudflare": "wrangler deploy",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
-  "keywords": ["line", "calendar", "tasks", "bot"],
+  "keywords": [
+    "line",
+    "calendar",
+    "tasks",
+    "bot"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {

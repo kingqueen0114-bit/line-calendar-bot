@@ -469,7 +469,26 @@ router.post('/api/memos', async (req, res) => {
     // 画像がある場合はGCSにアップロード
     if (imageBase64) {
       const imageBuffer = Buffer.from(imageBase64, 'base64');
-      imageUrl = await uploadImage(imageBuffer, userId);
+
+      // サイズ制限: 5MB
+      const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+      if (imageBuffer.length > MAX_IMAGE_SIZE) {
+        return res.status(400).json({
+          error: `画像サイズが上限（5MB）を超えています（${(imageBuffer.length / 1024 / 1024).toFixed(1)}MB）`
+        });
+      }
+
+      // フォーマット検証 (マジックバイト)
+      const isJPEG = imageBuffer[0] === 0xFF && imageBuffer[1] === 0xD8;
+      const isPNG = imageBuffer[0] === 0x89 && imageBuffer[1] === 0x50;
+      const isWebP = imageBuffer[8] === 0x57 && imageBuffer[9] === 0x45 && imageBuffer[10] === 0x42 && imageBuffer[11] === 0x50;
+
+      if (!isJPEG && !isPNG && !isWebP) {
+        return res.status(400).json({ error: '対応フォーマット: JPEG, PNG, WebP' });
+      }
+
+      const mimeType = isJPEG ? 'image/jpeg' : isPNG ? 'image/png' : 'image/webp';
+      imageUrl = await uploadImage(imageBuffer, userId, mimeType);
     }
 
     const memo = await createMemo({ text, imageUrl }, userId, env);

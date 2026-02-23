@@ -362,6 +362,14 @@ async function handleCompleteAction(eventData, userId, env) {
         );
         return;
       }
+    } else {
+      // pending データが期限切れ（TTL 600s）
+      await sendLineMessage(
+        userId,
+        '⏰ 操作がタイムアウトしました。\n\nもう一度「タスク一覧」と送信して、完了したいタスクを選び直してください。',
+        env.LINE_CHANNEL_ACCESS_TOKEN
+      );
+      return;
     }
   }
 
