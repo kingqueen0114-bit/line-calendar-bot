@@ -168,19 +168,6 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // Debug: OAuth configuration check
-    if (request.method === 'GET' && url.pathname === '/api/oauth-debug') {
-      return new Response(JSON.stringify({
-        redirect_uri: env.OAUTH_REDIRECT_URI || 'NOT SET',
-        client_id_set: !!env.GOOGLE_CLIENT_ID,
-        client_secret_set: !!env.GOOGLE_CLIENT_SECRET,
-        expected_callback: url.origin + '/oauth/callback'
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
     // LIFF API: Get auth URL for Google OAuth
     if (request.method === 'GET' && url.pathname === '/api/auth-url') {
       const userId = url.searchParams.get('userId');

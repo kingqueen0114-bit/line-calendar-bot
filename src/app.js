@@ -2,26 +2,12 @@
  * LINE Calendar Bot - メインアプリケーションロジック
  * Cloudflare Workers と Google Cloud Run の両方で使用
  */
-import { env, createContext } from './env-adapter.js';
-import { verifySignature, replyLineMessage, sendLineMessage, getMessageContent } from './line.js';
-import { createEvent, getUpcomingEvents, searchEvents, searchEventsInRange, deleteEvent, updateEvent } from './calendar.js';
-import { createTask, getUpcomingTasks, getAllIncompleteTasks, getTaskLists, completeTask } from './tasks.js';
-import { createMemo, uploadImage, uploadAudio, uploadFile } from './memo.js';
-import { parseEventText } from './gemini.js';
-import { handleOAuthCallback, getAuthorizationUrl, isUserAuthenticated, getUserAccessToken, revokeUserTokens } from './oauth.js';
-import { getLocalEvents } from './local-calendar.js';
-import { getLocalTasks } from './local-tasks.js';
-import {
-  getProjectProgress,
-  updateTaskStatus,
-  generateProgressSummary,
-  generateDetailedProgress,
-  addActivityLog,
-  saveMessageForClaude,
-  getMessagesForClaude,
-  parseProjectCommand,
-  getHelpMessage
-} from './project-manager.js';
+import { env, createContext } from './utils/env-adapter.js';
+import { verifySignature, replyLineMessage, sendLineMessage } from './services/line.service.js';
+import { createEvent, getUpcomingEvents, searchEvents, searchEventsInRange, deleteEvent, updateEvent } from './services/google-calendar.service.js';
+import { createTask, getUpcomingTasks, getAllIncompleteTasks, getTaskLists, completeTask } from './services/google-tasks.service.js';
+import { parseEventText } from './services/ai.service.js';
+import { handleOAuthCallback, getAuthorizationUrl, isUserAuthenticated, getUserAccessToken, revokeUserTokens } from './services/auth.service.js';
 
 // index.js からハンドラー関数をインポート（リファクタリング後）
 // 現在は index.js の内容を直接使用
@@ -43,12 +29,6 @@ export async function handleWebhook(body) {
       await handleFollowEvent(event, env);
     } else if (event.type === 'message' && event.message.type === 'text') {
       await handleMessage(event, env, ctx);
-    } else if (event.type === 'message' && event.message.type === 'audio') {
-      await handleAudioMessage(event, env);
-    } else if (event.type === 'message' && event.message.type === 'image') {
-      await handleImageMessage(event, env);
-    } else if (event.type === 'message' && event.message.type === 'file') {
-      await handleFileMessage(event, env);
     }
   } catch (error) {
     console.error('Webhook handling error:', error);
@@ -61,66 +41,8 @@ export async function handleWebhook(body) {
 export async function runScheduledTask() {
   try {
     await checkAndSendNotifications(env);
-
-    // 自動バックアップ（毎日3:00-3:15 JST に実行）
-    const now = new Date();
-    const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-    const jstHour = jstNow.getUTCHours();
-    const jstMinutes = jstNow.getUTCMinutes();
-
-    if (jstHour === 3 && jstMinutes < 15) {
-      await runAutoBackup(env);
-    }
   } catch (error) {
     console.error('Scheduled task error:', error);
-  }
-}
-
-/**
- * 自動バックアップを実行
- */
-async function runAutoBackup(env) {
-  console.log('Running auto backup...');
-
-  try {
-    const { createBackup, autoBackupSetting, getLastBackupTime } = await import('./backup.js');
-
-    // 通知対象ユーザーリストを取得
-    const usersJson = await env.NOTIFICATIONS.get('notification_users', { type: 'json' });
-    const users = usersJson || [];
-
-    if (users.length === 0) {
-      console.log('No users for auto backup');
-      return;
-    }
-
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    for (const userId of users) {
-      try {
-        // 自動バックアップが有効か確認
-        const isEnabled = await autoBackupSetting(userId, env);
-        if (!isEnabled) {
-          continue;
-        }
-
-        // 今日既にバックアップ済みか確認
-        const lastBackup = await getLastBackupTime(userId, env);
-        if (lastBackup && lastBackup.startsWith(todayStr)) {
-          continue;
-        }
-
-        // バックアップ作成
-        await createBackup(userId, env);
-        console.log('Auto backup created for user:', userId);
-      } catch (err) {
-        console.error('Auto backup failed for user ' + userId + ':', err);
-      }
-    }
-
-    console.log('Auto backup completed');
-  } catch (error) {
-    console.error('Auto backup error:', error);
   }
 }
 
@@ -180,126 +102,6 @@ async function handleFollowEvent(event, env) {
   console.log('Welcome message sent to user:', userId);
 }
 
-// Dev Agent コマンド処理
-const DEV_AGENT_URL = process.env.DEV_AGENT_URL || 'http://35.221.93.66:8080';
-
-// Claude Code VM に転送して自動応答
-async function forwardToClaudeVM(message, userId, replyToken, env) {
-  try {
-    console.log(`[VM Forward] Sending to Claude VM: ${message.substring(0, 50)}...`);
-
-    const response = await fetch(`${DEV_AGENT_URL}/api/line/message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message,
-        userId,
-        replyToken
-      }),
-      signal: AbortSignal.timeout(60000) // 60秒タイムアウト
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log(`[VM Forward] Response received: ${data.response?.substring(0, 50)}...`);
-
-      // VMが直接返信しない場合はここで返信
-      if (!replyToken && data.response) {
-        await sendLineMessage(userId, data.response, env.LINE_CHANNEL_ACCESS_TOKEN);
-      }
-
-      return data.response;
-    } else {
-      console.error(`[VM Forward] Error: ${response.status}`);
-      return null;
-    }
-  } catch (error) {
-    console.error(`[VM Forward] Error: ${error.message}`);
-    // VMに接続できない場合はメッセージを保存
-    const { saveMessageForClaude } = await import('./project-manager.js');
-    await saveMessageForClaude(message, env);
-    return null;
-  }
-}
-
-async function handleDevAgentCommand(message, env) {
-  const text = message.trim().toLowerCase();
-
-  // 状況確認
-  if (text === '状況' || text === 'status' || text === 'ステータス' || text === 'dev状況') {
-    try {
-      const res = await fetch(`${DEV_AGENT_URL}/`);
-      const data = await res.json();
-      return `📊 Dev Agent 状況\n\n` +
-        `状態: ${data.processing ? '処理中' : '待機中'}\n` +
-        `プロジェクト: ${data.projects}件\n` +
-        `保留タスク: ${data.pendingTasks}件`;
-    } catch (error) {
-      return `❌ Dev Agent接続エラー`;
-    }
-  }
-
-  // プロジェクト一覧
-  if (text === 'devプロジェクト' || text === 'dev projects') {
-    try {
-      const res = await fetch(`${DEV_AGENT_URL}/api/projects`);
-      const data = await res.json();
-      if (data.projects.length === 0) return '📁 プロジェクトなし';
-      let msg = `📁 プロジェクト (${data.count}件)\n\n`;
-      for (const p of data.projects) {
-        msg += `• ${p.repo}\n`;
-      }
-      return msg;
-    } catch (error) {
-      return `❌ エラー: ${error.message}`;
-    }
-  }
-
-  // タスク一覧
-  if (text === 'devタスク' || text === 'dev tasks') {
-    try {
-      const res = await fetch(`${DEV_AGENT_URL}/api/tasks`);
-      const data = await res.json();
-      if (data.tasks.length === 0) return '📋 タスクなし';
-      let msg = `📋 タスク\n保留:${data.pending} 処理中:${data.processing}\n\n`;
-      for (const t of data.tasks.slice(-5)) {
-        const s = t.status === 'completed' ? '✅' : t.status === 'failed' ? '❌' : t.status === 'processing' ? '⚙️' : '📋';
-        msg += `${s} ${t.title.slice(0, 30)}\n`;
-      }
-      return msg;
-    } catch (error) {
-      return `❌ エラー: ${error.message}`;
-    }
-  }
-
-  // タスク追加
-  if (message.startsWith('dev:') || message.startsWith('Dev:')) {
-    const title = message.replace(/^dev:/i, '').trim();
-    if (!title) return '❌ タスク内容を入力\n例: dev: バグ修正';
-    try {
-      const projectsRes = await fetch(`${DEV_AGENT_URL}/api/projects`);
-      const projectsData = await projectsRes.json();
-      if (projectsData.projects.length === 0) return '❌ プロジェクト未登録';
-      const project = `${projectsData.projects[0].owner}/${projectsData.projects[0].repo}`;
-
-      const res = await fetch(`${DEV_AGENT_URL}/api/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project, title })
-      });
-      const data = await res.json();
-      if (data.status === 'ok') {
-        return `✅ タスク追加\n📋 ${title}\n\n処理を開始します`;
-      }
-      return `❌ ${data.error}`;
-    } catch (error) {
-      return `❌ エラー: ${error.message}`;
-    }
-  }
-
-  return null;
-}
-
 // メッセージ処理（メイン）
 async function handleMessage(event, env, ctx) {
   console.log('=== handleMessage START ===');
@@ -321,26 +123,8 @@ async function handleMessage(event, env, ctx) {
     return;
   }
 
-  // ユーザーID確認コマンド
-  const lowerMessage = userMessage.toLowerCase();
-  if (userMessage === 'ユーザーID' || userMessage === 'ユーザーid' || userMessage === 'ID' ||
-      lowerMessage === 'userid' || lowerMessage === 'myid' || lowerMessage === 'id' ||
-      userMessage.includes('ユーザーID') || userMessage.includes('自分のID')) {
-    await replyLineMessage(
-      replyToken,
-      `🆔 あなたのLINE User ID:\n\n${userId}\n\n※このIDでプロジェクト管理機能が使えるようになります`,
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-    return;
-  }
-
-  // LINEメッセージは全ユーザー共通でカレンダー/タスク機能のみ
-  // Claude管理機能はリッチメニューのClaudeボタン（LIFF）で行う
-
   // 認証チェック
-  console.log('Checking authentication for userId:', userId);
   const isAuthenticated = await isUserAuthenticated(userId, env);
-  console.log('Authentication result:', isAuthenticated);
 
   if (!isAuthenticated) {
     const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
@@ -411,162 +195,6 @@ async function handleMessage(event, env, ctx) {
   );
 }
 
-// 音声メッセージ処理
-async function handleAudioMessage(event, env) {
-  const userId = event.source.userId;
-  const messageId = event.message.id;
-  const duration = event.message.duration; // ミリ秒
-
-  console.log('Audio message received:', messageId, 'duration:', duration);
-
-  // 認証チェック
-  if (!await isUserAuthenticated(userId, env)) {
-    const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
-    await replyLineMessage(
-      event.replyToken,
-      '🔐 Googleアカウントとの連携が必要です。\n\n下のリンクをタップして、アプリ内で認証してください👇\n\n' + liffUrl,
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-    return;
-  }
-
-  try {
-    // LINE APIから音声データ取得
-    const { buffer, contentType } = await getMessageContent(messageId, env.LINE_CHANNEL_ACCESS_TOKEN);
-
-    // GCSにアップロード
-    const audioUrl = await uploadAudio(buffer, userId, contentType || 'audio/m4a');
-
-    // メモとして保存
-    const durationSec = Math.round(duration / 1000);
-    await createMemo({
-      text: '🎤 ボイスメモ',
-      audioUrl,
-      audioDuration: durationSec
-    }, userId, env);
-
-    await replyLineMessage(
-      event.replyToken,
-      `🎤 ボイスメモを保存しました（${durationSec}秒）`,
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-  } catch (error) {
-    console.error('Audio message handling error:', error);
-    await replyLineMessage(
-      event.replyToken,
-      '⚠️ 音声の保存に失敗しました。',
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-  }
-}
-
-// 画像メッセージ処理
-async function handleImageMessage(event, env) {
-  const userId = event.source.userId;
-  const messageId = event.message.id;
-
-  console.log('Image message received:', messageId);
-
-  // 認証チェック
-  if (!await isUserAuthenticated(userId, env)) {
-    const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
-    await replyLineMessage(
-      event.replyToken,
-      '🔐 Googleアカウントとの連携が必要です。\n\n下のリンクをタップして、アプリ内で認証してください👇\n\n' + liffUrl,
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-    return;
-  }
-
-  try {
-    // LINE APIから画像データ取得
-    const { buffer, contentType } = await getMessageContent(messageId, env.LINE_CHANNEL_ACCESS_TOKEN);
-
-    // GCSにアップロード
-    const imageUrl = await uploadImage(buffer, userId, contentType || 'image/jpeg');
-
-    // メモとして保存
-    await createMemo({
-      text: '📷 画像メモ',
-      imageUrl
-    }, userId, env);
-
-    await replyLineMessage(
-      event.replyToken,
-      '📷 画像をメモとして保存しました',
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-  } catch (error) {
-    console.error('Image message handling error:', error);
-    await replyLineMessage(
-      event.replyToken,
-      '⚠️ 画像の保存に失敗しました。',
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-  }
-}
-
-// ファイルメッセージ処理
-async function handleFileMessage(event, env) {
-  const userId = event.source.userId;
-  const messageId = event.message.id;
-  const fileName = event.message.fileName;
-  const fileSize = event.message.fileSize;
-
-  console.log('File message received:', messageId, fileName, fileSize);
-
-  // 認証チェック
-  if (!await isUserAuthenticated(userId, env)) {
-    const liffUrl = `https://liff.line.me/${env.LIFF_ID}`;
-    await replyLineMessage(
-      event.replyToken,
-      '🔐 Googleアカウントとの連携が必要です。\n\n下のリンクをタップして、アプリ内で認証してください👇\n\n' + liffUrl,
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-    return;
-  }
-
-  // ファイルサイズチェック（10MB）
-  if (fileSize > 10 * 1024 * 1024) {
-    await replyLineMessage(
-      event.replyToken,
-      '⚠️ ファイルサイズが10MBを超えています。',
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-    return;
-  }
-
-  try {
-    // LINE APIからファイルデータ取得
-    const { buffer, contentType } = await getMessageContent(messageId, env.LINE_CHANNEL_ACCESS_TOKEN);
-
-    // GCSにアップロード
-    const fileUrl = await uploadFile(buffer, userId, fileName, contentType);
-
-    // メモとして保存
-    await createMemo({
-      text: `📎 ${fileName}`,
-      fileUrl,
-      fileName,
-      fileType: contentType,
-      fileSize
-    }, userId, env);
-
-    await replyLineMessage(
-      event.replyToken,
-      `📎 ファイルをメモとして保存しました\n\n${fileName}`,
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-  } catch (error) {
-    console.error('File message handling error:', error);
-    await replyLineMessage(
-      event.replyToken,
-      '⚠️ ファイルの保存に失敗しました。',
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-  }
-}
-
 // 一覧表示アクション
 async function handleListAction(eventData, userId, env) {
   const type = eventData.type;
@@ -615,20 +243,9 @@ async function handleListAction(eventData, userId, env) {
 
 // 作成アクション
 async function handleCreateAction(eventData, userId, env) {
-  const type = eventData.type;
+  const isTask = eventData.type === 'task';
 
-  if (type === 'memo') {
-    // メモ作成
-    const memoText = eventData.text || eventData.title || '';
-    const memo = await createMemo({ text: memoText }, userId, env);
-
-    await sendLineMessage(
-      userId,
-      `📝 メモを保存しました！\n\n${memoText.length > 100 ? memoText.substring(0, 100) + '...' : memoText}`,
-      env.LINE_CHANNEL_ACCESS_TOKEN
-    );
-  } else if (type === 'task') {
-    // タスク作成
+  if (isTask) {
     const taskData = {
       title: eventData.title,
       due: eventData.date || null,
@@ -696,100 +313,6 @@ async function handleCompleteAction(eventData, userId, env) {
   await sendLineMessage(userId, '⚠️ タスクが見つかりませんでした', env.LINE_CHANNEL_ACCESS_TOKEN);
 }
 
-// プロジェクト管理コマンド処理
-async function handleProjectCommand(message, env) {
-  const {
-    parseProjectCommand,
-    generateProgressSummary,
-    generateDetailedProgress,
-    getProjectProgress,
-    updateTaskStatus,
-    addActivityLog,
-    getHelpMessage,
-    saveMessageForClaude,
-    getUnreadClaudeResponses,
-    getAgentLightningStatus,
-    getRecentActivityLogs
-  } = await import('./project-manager.js');
-
-  const cmd = parseProjectCommand(message);
-
-  switch (cmd.command) {
-    case 'summary':
-      await addActivityLog('進捗サマリーを確認', env);
-      return await generateProgressSummary(env);
-
-    case 'detail':
-      await addActivityLog(`${cmd.phase}の詳細を確認`, env);
-      return await generateDetailedProgress(cmd.phase, env);
-
-    case 'complete': {
-      const progress = await getProjectProgress(env);
-      for (const phase of Object.values(progress)) {
-        const task = phase.tasks.find(t => t.id === cmd.taskId);
-        if (task) {
-          await updateTaskStatus(phase.id, cmd.taskId, 'completed', env);
-          await addActivityLog(`タスク完了: ${task.name}`, env);
-          return `✅ タスク「${task.name}」を完了しました！\n\n${await generateProgressSummary(env)}`;
-        }
-      }
-      return '指定されたタスクが見つかりません。';
-    }
-
-    case 'start': {
-      const progress = await getProjectProgress(env);
-      for (const phase of Object.values(progress)) {
-        const task = phase.tasks.find(t => t.id === cmd.taskId);
-        if (task) {
-          await updateTaskStatus(phase.id, cmd.taskId, 'in_progress', env);
-          await addActivityLog(`タスク開始: ${task.name}`, env);
-          return `🔄 タスク「${task.name}」を開始しました！`;
-        }
-      }
-      return '指定されたタスクが見つかりません。';
-    }
-
-    case 'check_reply': {
-      const unread = await getUnreadClaudeResponses(env);
-      if (unread.length === 0) {
-        return '📭 新しい返信はありません';
-      }
-      let response = `📬 Claudeからの返信 (${unread.length}件)\n━━━━━━━━━━━━━━━━\n\n`;
-      for (const r of unread) {
-        const time = new Date(r.timestamp).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
-        response += `🕐 ${time}\n${r.response}\n\n`;
-      }
-      return response;
-    }
-
-    case 'agl_status':
-      return await getAgentLightningStatus(env);
-
-    case 'logs': {
-      const logs = await getRecentActivityLogs(10, env);
-      if (logs.length === 0) {
-        return '📋 活動ログはありません';
-      }
-      let response = '📋 最近の活動ログ\n━━━━━━━━━━━━━━━━\n\n';
-      for (const log of logs) {
-        const time = new Date(log.timestamp).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
-        response += `🕐 ${time}\n   ${log.activity}\n`;
-      }
-      return response;
-    }
-
-    case 'help':
-      return getHelpMessage();
-
-    case 'claude':
-      await addActivityLog('メッセージ記録: ' + cmd.message.substring(0, 30), env);
-      return await saveMessageForClaude(cmd.message, env);
-
-    default:
-      return null;
-  }
-}
-
 // 通知チェック・送信
 async function checkAndSendNotifications(env) {
   console.log('Running scheduled notification check...');
@@ -806,12 +329,6 @@ async function checkAndSendNotifications(env) {
 
     const now = new Date();
     const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-    const jstHour = jstNow.getUTCHours();
-    const jstMinutes = jstNow.getUTCMinutes();
-    const todayStr = jstNow.toISOString().split('T')[0];
-    const tomorrowDate = new Date(jstNow);
-    tomorrowDate.setUTCDate(tomorrowDate.getUTCDate() + 1);
-    const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
 
     for (const userId of users) {
       try {
@@ -821,173 +338,70 @@ async function checkAndSendNotifications(env) {
           continue;
         }
 
-        // 全イベントを取得（Google + ローカル）
-        let allEvents = [];
-
-        // Google認証済みの場合はGoogleイベントを取得
+        // 認証チェック
         const isAuthenticated = await isUserAuthenticated(userId, env);
-        if (isAuthenticated) {
-          try {
-            const googleEvents = await getUpcomingEvents(userId, env, 7);
-            allEvents = allEvents.concat(googleEvents);
-          } catch (err) {
-            console.log('Failed to get Google events:', err.message);
-          }
+        if (!isAuthenticated) {
+          continue;
         }
 
-        // ローカルイベントを取得
-        try {
-          const localEvents = await getLocalEvents(userId, env, 7);
-          allEvents = allEvents.concat(localEvents);
-        } catch (err) {
-          console.log('Failed to get local events:', err.message);
-        }
+        // 今後30分以内の予定を取得
+        const events = await getUpcomingEvents(userId, env, 1);
 
-        // 各イベントのリマインダーをチェック
-        for (const event of allEvents) {
-          const eventId = event.id;
+        for (const event of events) {
           const eventStart = event.start.dateTime
             ? new Date(event.start.dateTime)
-            : new Date(event.start.date + 'T00:00:00+09:00');
+            : new Date(event.start.date);
 
-          const eventDateStr = event.start.date || event.start.dateTime.split('T')[0];
-          const eventTimeStr = event.start.dateTime
-            ? event.start.dateTime.substring(11, 16)
-            : null;
+          const timeDiff = eventStart.getTime() - now.getTime();
+          const minutesUntil = Math.floor(timeDiff / (1000 * 60));
 
-          // リマインダー設定を取得
-          const reminderData = await env.NOTIFICATIONS.get(`event_reminder_${userId}_${eventId}`, { type: 'json' });
-          const reminders = reminderData?.reminders || [];
-
-          // デフォルトリマインダー（設定がない場合は30分前）
-          if (reminders.length === 0) {
-            const timeDiff = eventStart.getTime() - now.getTime();
-            const minutesUntil = Math.floor(timeDiff / (1000 * 60));
-
-            if (minutesUntil >= 10 && minutesUntil <= 35) {
-              const notificationKey = `notified:${userId}:${eventId}:default`;
-              const alreadyNotified = await env.NOTIFICATIONS.get(notificationKey);
-
-              if (!alreadyNotified) {
-                const dateTime = formatEventDateTime(event);
-                const message = '⏰ まもなく予定があります\n\n📅 ' + (event.summary || '予定') + '\n⏰ ' + dateTime.dateStr + ' ' + dateTime.timeStr + '\n\n約' + minutesUntil + '分後に開始します';
-
-                await sendLineMessage(userId, message, env.LINE_CHANNEL_ACCESS_TOKEN);
-                await env.NOTIFICATIONS.put(notificationKey, 'true', { expirationTtl: 86400 });
-                console.log('Notification sent to ' + userId + ' for event: ' + event.summary);
-              }
-            }
-          }
-
-          // カスタムリマインダーを処理
-          for (const reminder of reminders) {
-            const notificationKey = 'notified:' + userId + ':' + eventId + ':' + reminder;
+          // 15分前〜30分前の予定に通知
+          if (minutesUntil >= 10 && minutesUntil <= 35) {
+            // 重複チェック
+            const notificationKey = `notified:${userId}:${event.id}`;
             const alreadyNotified = await env.NOTIFICATIONS.get(notificationKey);
-            if (alreadyNotified) continue;
 
-            let shouldNotify = false;
-            let reminderText = '';
-
-            if (reminder === 'day_before' && eventDateStr === tomorrowStr && jstHour >= 20 && jstHour <= 21) {
-              // 前日の20-21時に通知
-              shouldNotify = true;
-              reminderText = '明日';
-            } else if (reminder === 'morning' && eventDateStr === todayStr && jstHour >= 7 && jstHour <= 8) {
-              // 当日朝7-8時に通知
-              shouldNotify = true;
-              reminderText = '今日';
-            } else if (reminder === '1hour_before' && eventTimeStr) {
-              // 1時間前に通知
-              const timeDiff = eventStart.getTime() - now.getTime();
-              const minutesUntil = Math.floor(timeDiff / (1000 * 60));
-              if (minutesUntil >= 50 && minutesUntil <= 70) {
-                shouldNotify = true;
-                reminderText = '1時間前';
-              }
-            } else if (reminder.startsWith('custom_')) {
-              // カスタム時間（例: custom_30min, custom_2hour）
-              const customMatch = reminder.match(/custom_(\d+)(min|hour)/);
-              if (customMatch) {
-                const value = parseInt(customMatch[1]);
-                const unit = customMatch[2];
-                const targetMinutes = unit === 'hour' ? value * 60 : value;
-                const timeDiff = eventStart.getTime() - now.getTime();
-                const minutesUntil = Math.floor(timeDiff / (1000 * 60));
-                if (minutesUntil >= targetMinutes - 5 && minutesUntil <= targetMinutes + 10) {
-                  shouldNotify = true;
-                  reminderText = unit === 'hour' ? value + '時間後' : value + '分後';
-                }
-              }
-            }
-
-            if (shouldNotify) {
+            if (!alreadyNotified) {
               const dateTime = formatEventDateTime(event);
-              let message = '⏰ ';
-              if (reminderText === '明日' || reminderText === '今日') {
-                message += reminderText + '予定があります';
-              } else {
-                message += reminderText + 'に予定があります';
-              }
-              message += '\n\n📅 ' + (event.summary || '予定');
-              message += '\n⏰ ' + dateTime.dateStr + ' ' + dateTime.timeStr;
-              if (event.location) {
-                message += '\n📍 ' + event.location;
-              }
+              const message = `⏰ まもなく予定があります\n\n📅 ${event.summary || '予定'}\n⏰ ${dateTime.dateStr} ${dateTime.timeStr}\n\n約${minutesUntil}分後に開始します`;
 
               await sendLineMessage(userId, message, env.LINE_CHANNEL_ACCESS_TOKEN);
+
+              // 通知済みとしてマーク（24時間有効）
               await env.NOTIFICATIONS.put(notificationKey, 'true', { expirationTtl: 86400 });
-              console.log('Custom reminder sent to ' + userId + ' for event: ' + event.summary + ' (' + reminder + ')');
+              console.log(`Notification sent to ${userId} for event: ${event.summary}`);
             }
           }
         }
 
-        // タスクの通知をチェック
-        let allTasks = [];
-
-        // Google認証済みの場合はGoogleタスクを取得
-        if (isAuthenticated) {
-          try {
-            const googleTasks = await getAllIncompleteTasks(userId, env);
-            allTasks = allTasks.concat(googleTasks);
-          } catch (err) {
-            console.log('Failed to get Google tasks:', err.message);
-          }
-        }
-
-        // ローカルタスクを取得
-        try {
-          const localTasks = await getLocalTasks(userId, env);
-          allTasks = allTasks.concat(localTasks);
-        } catch (err) {
-          console.log('Failed to get local tasks:', err.message);
-        }
-
-        // 今日期限のタスクを通知（朝8-9時）
-        if (jstHour >= 8 && jstHour <= 9) {
-          const todayKey = 'task_notified:' + userId + ':' + todayStr;
+        // 今日期限のタスクを通知（朝9時頃）
+        const jstHour = jstNow.getUTCHours();
+        if (jstHour >= 8 && jstHour <= 10) {
+          const todayKey = `task_notified:${userId}:${jstNow.toISOString().split('T')[0]}`;
           const taskNotified = await env.NOTIFICATIONS.get(todayKey);
 
           if (!taskNotified) {
-            const todayTasks = allTasks.filter(task => {
+            const tasks = await getAllIncompleteTasks(userId, env);
+            const today = jstNow.toISOString().split('T')[0];
+            const todayTasks = tasks.filter(task => {
               if (!task.due) return false;
-              const dueStr = typeof task.due === 'string' ? task.due : task.due.toISOString();
-              return dueStr.startsWith(todayStr);
+              return task.due.startsWith(today);
             });
 
             if (todayTasks.length > 0) {
-              let message = '📝 今日期限のタスクがあります\n\n';
+              let message = `📝 今日期限のタスクがあります\n\n`;
               todayTasks.forEach((task, index) => {
-                message += (index + 1) + '. ' + task.title + '\n';
+                message += `${index + 1}. ${task.title}\n`;
               });
 
               await sendLineMessage(userId, message.trim(), env.LINE_CHANNEL_ACCESS_TOKEN);
               await env.NOTIFICATIONS.put(todayKey, 'true', { expirationTtl: 86400 });
-              console.log('Task reminder sent to ' + userId);
+              console.log(`Task reminder sent to ${userId}`);
             }
           }
         }
       } catch (userError) {
-        console.error('Notification error for user ' + userId + ':', userError);
+        console.error(`Notification error for user ${userId}:`, userError);
       }
     }
 

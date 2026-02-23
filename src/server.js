@@ -1,41 +1,17 @@
 /**
- * LINE Calendar Bot - Express Server for Google Cloud Run
- * リファクタリング版: ルーター分割 + 統一ミドルウェア
+ * LINE Calendar Bot - Express Server for Google Cloud Run (v2 Architecture)
  */
 import express from 'express';
-import {
-  rateLimit,
-  securityHeaders,
-  corsHandler,
-  requestLogger,
-  validateInput
-} from './security.js';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-
-// ルーターをインポート
-import liffRouter from './routes/liff.js';
-import apiRouter from './routes/api.js';
-import backupRouter from './routes/backup.js';
-import projectRouter from './routes/project.js';
-import webhookRouter from './routes/webhook.js';
-import { eventsRouter, tasksRouter } from './routes/local.js';
-import sharedRouter from './routes/shared.js';
+import liffRoute from './routes/liff.route.js';
+import authRoute from './routes/auth.route.js';
+import apiRoute from './routes/api.route.js';
+import webhookRoute from './routes/webhook.route.js';
+import { runScheduledTask } from './app.js';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// ==================== グローバルミドルウェア ====================
-
-// リクエストログ
-app.use(requestLogger());
-
-// セキュリティヘッダー
-app.use(securityHeaders());
-
-// CORS
-app.use(corsHandler());
-
-// JSONボディ解析（署名検証用にrawBodyを保持）
+// JSONボディの解析（生のボディも保持、画像Base64用に50MBまで許可）
 app.use(express.json({
   limit: '50mb',
   verify: (req, res, buf) => {
@@ -43,65 +19,46 @@ app.use(express.json({
   }
 }));
 
-// 入力検証
-app.use(validateInput());
-
-// ==================== ルート別レート制限 ====================
-
-app.use('/api/auth', rateLimit('auth'));
-app.use('/api', rateLimit('api'));
-app.use('/liff', rateLimit('liff'));
-
-// ==================== ルーター登録 ====================
-
-// LIFF & OAuth（/, /liff, /liff2, /oauth/callback, /claude-chat）
-app.use('/', liffRouter);
-
-// API（/api/*）
-app.use('/api', apiRouter);
-
-// ローカルイベント（/api/local-events）
-app.use('/api/local-events', eventsRouter);
-
-// ローカルタスク（/api/local-tasks）
-app.use('/api/local-tasks', tasksRouter);
-
-// 共有（/api/shared-*, /api/projects）
-app.use('/api/shared-events', sharedRouter);
-app.use('/api/shared-tasks', sharedRouter);
-app.use('/api/shared-tasklists', sharedRouter);
-app.use('/api/projects', sharedRouter);
-
-// バックアップ（/api/backup/*）
-app.use('/api/backup', backupRouter);
-
-// プロジェクト管理（/api/project/*）
-app.use('/api/project', projectRouter);
-
-// Webhook & スケジューラー（POST /, /scheduled）
-app.use('/', webhookRouter);
-
-// ==================== エラーハンドリング ====================
-
-// 404ハンドラー
-app.use(notFoundHandler);
-
-// 統一エラーハンドラー
-app.use(errorHandler);
-
-// ==================== サーバー起動 ====================
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log('Routes registered:');
-  console.log('  - LIFF: /, /liff, /liff2, /oauth/callback, /claude-chat');
-  console.log('  - API: /api/*');
-  console.log('  - Local Events: /api/local-events');
-  console.log('  - Local Tasks: /api/local-tasks');
-  console.log('  - Shared: /api/shared-events, /api/shared-tasks, /api/shared-tasklists, /api/projects');
-  console.log('  - Backup: /api/backup/*');
-  console.log('  - Project: /api/project/*');
-  console.log('  - Webhook: POST /, /scheduled');
+// ヘルスチェック
+app.get('/', (req, res) => {
+  res.send('LINE Calendar Bot is running');
 });
 
-export default app;
+// Routes
+app.use('/liff', liffRoute);
+app.use('/oauth', authRoute);
+app.use('/api', apiRoute);
+app.use('/webhook', webhookRoute);
+
+// LINE Webhook はルート(/)にもマウントしておく（互換性確保用）
+app.use('/', webhookRoute);
+
+// スケジュールタスク用エンドポイント（Cloud Scheduler から呼び出し）
+app.post('/scheduled', async (req, res) => {
+  console.log('Scheduled task triggered via POST');
+  try {
+    await runScheduledTask();
+    console.log('Scheduled task completed successfully');
+    res.sendStatus(200);
+  } catch (err) {
+    console.error('Scheduled task error:', err);
+    res.status(500).send('Error');
+  }
+});
+
+app.get('/scheduled', async (req, res) => {
+  console.log('Scheduled task triggered via GET');
+  try {
+    await runScheduledTask();
+    console.log('Scheduled task completed successfully');
+    res.send('OK');
+  } catch (err) {
+    console.error('Scheduled task error:', err);
+    res.status(500).send('Error');
+  }
+});
+
+// サーバー起動
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});

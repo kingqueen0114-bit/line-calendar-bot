@@ -1,12 +1,6 @@
 # Dependencies
 node_modules/
 
-# Google Cloud SDK
-google-cloud-sdk/
-
-# Temp projects
-my-new-project/
-
 # Environment variables (secrets)
 .env
 .env.local
@@ -35,3 +29,4 @@ credentials.json
 service-account.json
 *.pem
 *.key
+\ncors.json\ngoogle-credentials.json
