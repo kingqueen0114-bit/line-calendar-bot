@@ -107,7 +107,7 @@ export function generateLiffHtml(liffId, apiBase) {
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border-top: 0.5px solid var(--border);
-      padding: 6px 0 env(safe-area-inset-bottom, 18px);
+      padding: 4px 0 env(safe-area-inset-bottom, 8px);
       z-index: 10;
     }
     .tab-item {
@@ -115,19 +115,19 @@ export function generateLiffHtml(liffId, apiBase) {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 2px;
+      justify-content: center;
+      gap: 1px;
       border: none;
       background: transparent;
       cursor: pointer;
-      padding: 0;
+      padding: 6px 0;
       transition: all 0.15s;
     }
-    .tab-icon { font-size: 18px; opacity: 0.35; transition: opacity 0.15s; }
+    .tab-icon { font-size: 20px; opacity: 0.5; transition: opacity 0.15s; }
     .tab-item.active .tab-icon { opacity: 1; }
-    .tab-label { font-size: 9px; font-weight: 600; color: var(--sub); transition: color 0.15s; }
+    .tab-label { font-size: 10px; font-weight: 600; color: var(--sub); transition: color 0.15s; letter-spacing: -0.3px; }
     .tab-item.active .tab-label { color: var(--primary); }
     .tab-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--primary); margin-top: -1px; }
-    .tab-item.active svg { fill: var(--primary); }
 
     /* FAB */
     .fab {
