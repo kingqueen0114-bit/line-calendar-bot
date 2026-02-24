@@ -1133,16 +1133,14 @@ export function generateLiffHtml(liffId, apiBase) {
     .settings-group {
       background: var(--card);
       border-radius: 10px;
-      margin-bottom: 12px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
+      margin-bottom: 16px;
+      box-shadow: var(--card-shadow);
     }
     .settings-group-title {
-      padding: 12px 16px;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-muted);
-      background: var(--bg);
+      padding: 14px 16px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--sub);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -1492,30 +1490,30 @@ export function generateLiffHtml(liffId, apiBase) {
         </div>
         <div class="settings-group">
           <div class="settings-group-title">カラーテーマ</div>
-          <div id="color-theme-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 16px;">
-            <div class="clr-option" data-clr="ocean" style="padding:8px;border-radius:8px;border:2px solid var(--primary);cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <div style="width:20px;height:20px;border-radius:50%;background:#2563EB;flex-shrink:0;"></div>
-              <span style="font-size:12px;font-weight:600;">Ocean</span>
+          <div id="color-theme-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 16px;">
+            <div class="clr-option" data-clr="ocean" style="padding:10px 12px;border-radius:10px;border:2px solid var(--primary);cursor:pointer;display:flex;align-items:center;gap:10px;">
+              <div style="width:24px;height:24px;border-radius:50%;background:#2563EB;flex-shrink:0;"></div>
+              <div><div style="font-size:13px;font-weight:700;">Ocean</div><div style="font-size:10px;color:var(--sub);">爽やか・ブルー</div></div>
             </div>
-            <div class="clr-option" data-clr="terracotta" style="padding:8px;border-radius:8px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <div style="width:20px;height:20px;border-radius:50%;background:#C4733B;flex-shrink:0;"></div>
-              <span style="font-size:12px;font-weight:600;">Terra</span>
+            <div class="clr-option" data-clr="terracotta" style="padding:10px 12px;border-radius:10px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px;">
+              <div style="width:24px;height:24px;border-radius:50%;background:#C4733B;flex-shrink:0;"></div>
+              <div><div style="font-size:13px;font-weight:700;">Terra</div><div style="font-size:10px;color:var(--sub);">暖かい・アース</div></div>
             </div>
-            <div class="clr-option" data-clr="forest" style="padding:8px;border-radius:8px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <div style="width:20px;height:20px;border-radius:50%;background:#16A34A;flex-shrink:0;"></div>
-              <span style="font-size:12px;font-weight:600;">Forest</span>
+            <div class="clr-option" data-clr="forest" style="padding:10px 12px;border-radius:10px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px;">
+              <div style="width:24px;height:24px;border-radius:50%;background:#16A34A;flex-shrink:0;"></div>
+              <div><div style="font-size:13px;font-weight:700;">Forest</div><div style="font-size:10px;color:var(--sub);">自然・グリーン</div></div>
             </div>
-            <div class="clr-option" data-clr="midnight" style="padding:8px;border-radius:8px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <div style="width:20px;height:20px;border-radius:50%;background:#818CF8;flex-shrink:0;border:1px solid #ccc;"></div>
-              <span style="font-size:12px;font-weight:600;">Night</span>
+            <div class="clr-option" data-clr="midnight" style="padding:10px 12px;border-radius:10px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px;">
+              <div style="width:24px;height:24px;border-radius:50%;background:#818CF8;flex-shrink:0;"></div>
+              <div><div style="font-size:13px;font-weight:700;">Night</div><div style="font-size:10px;color:var(--sub);">ダーク・パープル</div></div>
             </div>
-            <div class="clr-option" data-clr="rose" style="padding:8px;border-radius:8px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <div style="width:20px;height:20px;border-radius:50%;background:#E11D48;flex-shrink:0;"></div>
-              <span style="font-size:12px;font-weight:600;">Rosé</span>
+            <div class="clr-option" data-clr="rose" style="padding:10px 12px;border-radius:10px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px;">
+              <div style="width:24px;height:24px;border-radius:50%;background:#E11D48;flex-shrink:0;"></div>
+              <div><div style="font-size:13px;font-weight:700;">Rosé</div><div style="font-size:10px;color:var(--sub);">華やか・ピンク</div></div>
             </div>
-            <div class="clr-option" data-clr="mono" style="padding:8px;border-radius:8px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <div style="width:20px;height:20px;border-radius:50%;background:#171717;flex-shrink:0;"></div>
-              <span style="font-size:12px;font-weight:600;">Mono</span>
+            <div class="clr-option" data-clr="mono" style="padding:10px 12px;border-radius:10px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px;">
+              <div style="width:24px;height:24px;border-radius:50%;background:#171717;flex-shrink:0;"></div>
+              <div><div style="font-size:13px;font-weight:700;">Mono</div><div style="font-size:10px;color:var(--sub);">モノクロ</div></div>
             </div>
           </div>
         </div>
