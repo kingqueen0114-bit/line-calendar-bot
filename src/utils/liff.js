@@ -340,11 +340,10 @@ export function generateLiffHtml(liffId, apiBase) {
       background: var(--card);
       border-radius: 10px;
       padding: 8px;
-      box-shadow: var(--shadow);
       display: flex;
       flex-direction: column;
-      height: calc(100vh - var(--header-height) - var(--tab-height) - var(--safe-bottom) - 100px);
-      min-height: 400px;
+      flex: 1;
+      min-height: 0;
     }
     .calendar-weekdays {
       display: grid;
