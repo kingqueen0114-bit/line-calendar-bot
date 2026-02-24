@@ -1373,18 +1373,25 @@ export function generateLiffHtml(liffId, apiBase) {
 
     <div class="main">
       <div id="calendar" class="section active">
-        <div class="sub-tabs">
-          <button class="sub-tab active" data-view="month">月</button>
-          <button class="sub-tab" data-view="week">週</button>
-          <button class="sub-tab" data-view="day">日</button>
+        <div class="cal-header" style="background:var(--header-bg);padding:14px 18px 8px;flex-shrink:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div id="cal-year" style="font-size:11px;font-weight:500;color:var(--sub);letter-spacing:0.5px;"></div>
+              <div id="cal-month" style="font-size:22px;font-weight:var(--header-font-weight);letter-spacing:-0.5px;color:var(--header-color);"></div>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button id="prev-period" style="background:color-mix(in srgb, var(--primary) 10%, transparent);border:none;border-radius:var(--tab-radius);padding:5px 8px;cursor:pointer;font-size:14px;color:var(--header-color);">◀</button>
+              <button id="next-period" style="background:color-mix(in srgb, var(--primary) 10%, transparent);border:none;border-radius:var(--tab-radius);padding:5px 8px;cursor:pointer;font-size:14px;color:var(--header-color);">▶</button>
+            </div>
+          </div>
+          <div class="sub-tabs" style="display:flex;margin-top:8px;background:color-mix(in srgb, var(--border) 40%, transparent);border-radius:var(--tab-radius);padding:2px;">
+            <button class="sub-tab active" data-view="month" style="flex:1;padding:5px 0;border:none;border-radius:calc(var(--tab-radius) - 2px);font-size:12px;font-weight:600;cursor:pointer;background:var(--tab-active-bg);color:var(--tab-active-color);transition:all 0.2s;">月</button>
+            <button class="sub-tab" data-view="week" style="flex:1;padding:5px 0;border:none;border-radius:calc(var(--tab-radius) - 2px);font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--tab-inactive-color);transition:all 0.2s;">週</button>
+            <button class="sub-tab" data-view="day" style="flex:1;padding:5px 0;border:none;border-radius:calc(var(--tab-radius) - 2px);font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:var(--tab-inactive-color);transition:all 0.2s;">日</button>
+          </div>
         </div>
-        <div class="calendar-nav">
-          <button class="nav-btn" id="prev-period">‹</button>
-          <h2 id="current-period">2024年1月</h2>
-          <button class="nav-btn" id="next-period">›</button>
-        </div>
-        <div id="calendar-view"></div>
-        <div class="events-section" id="events-section"></div>
+        <div id="calendar-view" style="flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;"></div>
+        <div class="events-section" id="events-section" style="flex-shrink:0;"></div>
       </div>
 
       <div id="tasks" class="section">
@@ -2403,18 +2410,23 @@ export function generateLiffHtml(liffId, apiBase) {
     }
 
     function updatePeriodLabel() {
-      const label = document.getElementById('current-period');
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
+      const yearEl = document.getElementById('cal-year');
+      const monthEl = document.getElementById('cal-month');
+      if (!yearEl || !monthEl) return;
       if (currentView === 'month') {
-        label.textContent = year + '年' + (month + 1) + '月';
+        yearEl.textContent = year;
+        monthEl.textContent = (month + 1) + '月';
       } else if (currentView === 'week') {
         const ws = getWeekStartDate(currentDate);
         const weekEnd = new Date(ws);
         weekEnd.setDate(weekEnd.getDate() + 6);
-        label.textContent = (ws.getMonth() + 1) + '/' + ws.getDate() + ' - ' + (weekEnd.getMonth() + 1) + '/' + weekEnd.getDate();
+        yearEl.textContent = year;
+        monthEl.textContent = (ws.getMonth() + 1) + '/' + ws.getDate() + ' - ' + (weekEnd.getMonth() + 1) + '/' + weekEnd.getDate();
       } else {
-        label.textContent = (month + 1) + '月' + currentDate.getDate() + '日(' + getWeekdaysBase()[currentDate.getDay()] + ')';
+        yearEl.textContent = year;
+        monthEl.textContent = (month + 1) + '月' + currentDate.getDate() + '日(' + getWeekdaysBase()[currentDate.getDay()] + ')';
       }
     }
 
@@ -2466,10 +2478,10 @@ export function generateLiffHtml(liffId, apiBase) {
         html += '<div class="day-events">';
 
         const eventsToShow = dayEvents.slice(0, maxEventsToShow);
-        eventsToShow.forEach(event => {
-          const bgColor = event.isShared && event.projectColor ? event.projectColor : 'var(--primary)';
-          const sharedClass = event.isShared ? ' shared' : '';
-          html += '<div class="day-event' + sharedClass + '" style="background:' + bgColor + ';">' + (event.summary || '予定') + '</div>';
+        eventsToShow.forEach((event, idx) => {
+          const evtColorIdx = idx % 6;
+          const evtColor = event.isShared && event.projectColor ? event.projectColor : 'var(--event-color-' + evtColorIdx + ')';
+          html += '<div class="day-event" style="font-size:var(--evt-font,9.5px);font-weight:500;padding:var(--evt-padding);border-radius:var(--evt-radius);background:color-mix(in srgb, ' + evtColor + ' 12%, transparent);color:' + evtColor + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;border-left:var(--evt-border-left,none);' + (event.isShared && event.projectColor ? 'border-left-color:' + event.projectColor + ';' : '') + '">' + (event.summary || '予定') + '</div>';
         });
 
         if (dayEvents.length > maxEventsToShow) {
@@ -2564,26 +2576,54 @@ export function generateLiffHtml(liffId, apiBase) {
       const dateStr = formatDateStr(selectedDate);
       const dayEvents = getAllEvents().filter(e => getEventDateStr(e) === dateStr);
 
-      if (currentView !== 'month') { container.innerHTML = ''; return; }
-
-      if (dayEvents.length === 0) {
-        container.innerHTML = '<h3>' + (selectedDate.getMonth() + 1) + '/' + selectedDate.getDate() + ' の予定</h3><div class="empty">予定はありません</div>';
+      if (currentView !== 'month' || calendarBottomView === 'none') {
+        container.innerHTML = '';
+        container.style.display = 'none';
         return;
       }
+      container.style.display = 'block';
+      container.style.borderTop = '1px solid var(--border)';
+      container.style.padding = '8px 14px';
+      container.style.maxHeight = '160px';
+      container.style.overflowY = 'auto';
+      container.style.background = 'var(--card)';
 
-      let html = '<h3>' + (selectedDate.getMonth() + 1) + '/' + selectedDate.getDate() + ' の予定</h3>';
-      dayEvents.forEach(event => {
-        const isShared = event.isShared;
-        const projectName = event.projectName || '';
-        const projectColor = event.projectColor || '#06c755';
-        const borderStyle = isShared ? 'border-left: 4px solid ' + projectColor + ';' : '';
-        html += '<div class="event-card" style="' + borderStyle + '" onclick="showEventDetailModal(\\'' + event.id + '\\', ' + isShared + ', \\'' + (event.projectId || '') + '\\')">';
-        if (isShared) html += '<span style="font-size:10px;color:' + projectColor + ';">📅 ' + projectName + '</span>';
-        html += '<h4>' + (event.summary || '予定') + '</h4>';
-        html += '<p>' + formatEventTime(event) + '</p></div>';
-      });
+      let html = '';
+      const day = selectedDate.getDate();
+
+      if (calendarBottomView === 'events' || calendarBottomView === 'both') {
+        html += '<div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:0.5px;margin-bottom:5px;text-transform:uppercase;">' + day + '日の予定</div>';
+        if (dayEvents.length === 0) {
+          html += '<div style="font-size:12px;color:var(--sub);padding:2px 0;">予定なし</div>';
+        } else {
+          html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+          dayEvents.forEach((event, idx) => {
+            const evtColor = event.isShared && event.projectColor ? event.projectColor : 'var(--event-color-' + (idx % 6) + ')';
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:color-mix(in srgb, ' + evtColor + ' 8%, transparent);border-radius:8px;border-left:3px solid ' + evtColor + ';">';
+            html += '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--text);">' + (event.summary || '予定') + '</div>';
+            const time = formatEventTime(event);
+            if (time) html += '<div style="font-size:11px;color:var(--sub);">' + time + '</div>';
+            html += '</div></div>';
+          });
+          html += '</div>';
+        }
+        if (calendarBottomView === 'both') html += '<div style="margin-bottom:6px;"></div>';
+      }
+
+      if (calendarBottomView === 'tasks' || calendarBottomView === 'both') {
+        html += '<div style="font-size:10px;font-weight:700;color:var(--sub);letter-spacing:0.5px;margin-bottom:5px;text-transform:uppercase;">タスク</div>';
+        const incompleteTasks = tasks.filter(t => !t.completed && !t.status).slice(0, 3);
+        incompleteTasks.forEach(tk => {
+          html += '<div style="display:flex;align-items:center;gap:8px;padding:3px 0;">';
+          html += '<div style="width:14px;height:14px;border-radius:3px;border:1.5px solid var(--border);flex-shrink:0;"></div>';
+          html += '<span style="font-size:12px;flex:1;color:var(--text);">' + (tk.title || 'タスク') + '</span>';
+          html += '</div>';
+        });
+      }
+
       container.innerHTML = html;
     }
+
 
     function attachCalendarListeners() {
       document.querySelectorAll('.day[data-date]').forEach(el => {
