@@ -96,23 +96,35 @@ router.get('/api/events', async (req, res) => {
 
   try {
     const { isUserAuthenticated } = await import('./services/auth.service.js');
-    const { getUpcomingEvents } = await import('./services/google-calendar.service.js');
     const { env } = await import('./utils/env-adapter.js');
-    const { registerUserForNotifications } = await import('./app.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    const isAuthed = await isUserAuthenticated(userId, env);
+
+    if (isAuthed) {
+      // Google Calendar モード
+      const { getUpcomingEvents } = await import('./services/google-calendar.service.js');
+      const { registerUserForNotifications } = await import('./app.js');
+      await registerUserForNotifications(userId, env);
+      const events = await getUpcomingEvents(userId, env, 90);
+      res.json(events);
+    } else {
+      // ローカルモード（Firestore直接）
+      const { getLocalEvents } = await import('./services/local-calendar.service.js');
+      const events = await getLocalEvents(userId, 90);
+      res.json(events);
     }
-
-    // ユーザーを通知リストに登録（LIFF起動時）
-    await registerUserForNotifications(userId, env);
-
-    const events = await getUpcomingEvents(userId, env, 90);
-    res.json(events);
   } catch (err) {
     console.error('LIFF API events error:', err);
     if (err.status === 401) {
-      return res.status(401).json({ error: 'Auth error' });
+      // 認証エラーでもローカルにフォールバック
+      try {
+        const { getLocalEvents } = await import('./services/local-calendar.service.js');
+        const events = await getLocalEvents(userId, 90);
+        res.json(events);
+      } catch (e2) {
+        res.status(500).json({ error: e2.message });
+      }
+      return;
     }
     res.status(500).json({ error: err.message });
   }
@@ -156,21 +168,25 @@ router.get('/api/tasks', async (req, res) => {
 
   try {
     const { isUserAuthenticated } = await import('./services/auth.service.js');
-    const { getAllIncompleteTasks } = await import('./services/google-tasks.service.js');
     const { env } = await import('./utils/env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    if (await isUserAuthenticated(userId, env)) {
+      const { getAllIncompleteTasks } = await import('./services/google-tasks.service.js');
+      const tasks = await getAllIncompleteTasks(userId, env);
+      res.json(tasks);
+    } else {
+      const { getLocalTasks } = await import('./services/local-calendar.service.js');
+      const tasks = await getLocalTasks(userId);
+      res.json(tasks);
     }
-
-    const tasks = await getAllIncompleteTasks(userId, env);
-    res.json(tasks);
   } catch (err) {
     console.error('LIFF API tasks error:', err);
-    if (err.status === 401) {
-      return res.status(401).json({ error: 'Auth error' });
+    try {
+      const { getLocalTasks } = await import('./services/local-calendar.service.js');
+      res.json(await getLocalTasks(userId));
+    } catch (e2) {
+      res.status(500).json({ error: err.message });
     }
-    res.status(500).json({ error: err.message });
   }
 });
 
@@ -184,14 +200,15 @@ router.post('/api/tasks/complete', async (req, res) => {
 
   try {
     const { isUserAuthenticated } = await import('./services/auth.service.js');
-    const { completeTask } = await import('./services/google-tasks.service.js');
     const { env } = await import('./utils/env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    if (taskId.startsWith('local_') || listId === 'local' || !await isUserAuthenticated(userId, env)) {
+      const { completeLocalTask } = await import('./services/local-calendar.service.js');
+      await completeLocalTask(userId, taskId);
+    } else {
+      const { completeTask } = await import('./services/google-tasks.service.js');
+      await completeTask(taskId, listId, userId, env);
     }
-
-    await completeTask(taskId, listId, userId, env);
     res.json({ success: true });
   } catch (err) {
     console.error('LIFF API complete task error:', err);
@@ -210,14 +227,15 @@ router.post('/api/tasks/uncomplete', async (req, res) => {
 
   try {
     const { isUserAuthenticated } = await import('./services/auth.service.js');
-    const { uncompleteTask } = await import('./services/google-tasks.service.js');
     const { env } = await import('./utils/env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    if (taskId.startsWith('local_') || listId === 'local' || !await isUserAuthenticated(userId, env)) {
+      const { uncompleteLocalTask } = await import('./services/local-calendar.service.js');
+      await uncompleteLocalTask(userId, taskId);
+    } else {
+      const { uncompleteTask } = await import('./services/google-tasks.service.js');
+      await uncompleteTask(taskId, listId, userId, env);
     }
-
-    await uncompleteTask(taskId, listId, userId, env);
     res.json({ success: true });
   } catch (err) {
     console.error('LIFF API uncomplete task error:', err);
@@ -236,21 +254,25 @@ router.get('/api/tasks/completed', async (req, res) => {
 
   try {
     const { isUserAuthenticated } = await import('./services/auth.service.js');
-    const { getAllCompletedTasks } = await import('./services/google-tasks.service.js');
     const { env } = await import('./utils/env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    if (await isUserAuthenticated(userId, env)) {
+      const { getAllCompletedTasks } = await import('./services/google-tasks.service.js');
+      const tasks = await getAllCompletedTasks(userId, env);
+      res.json(tasks);
+    } else {
+      const { getLocalCompletedTasks } = await import('./services/local-calendar.service.js');
+      const tasks = await getLocalCompletedTasks(userId);
+      res.json(tasks);
     }
-
-    const tasks = await getAllCompletedTasks(userId, env);
-    res.json(tasks);
   } catch (err) {
     console.error('LIFF API completed tasks error:', err);
-    if (err.status === 401) {
-      return res.status(401).json({ error: 'Auth error' });
+    try {
+      const { getLocalCompletedTasks } = await import('./services/local-calendar.service.js');
+      res.json(await getLocalCompletedTasks(userId));
+    } catch (e2) {
+      res.status(500).json({ error: err.message });
     }
-    res.status(500).json({ error: err.message });
   }
 });
 
@@ -291,26 +313,25 @@ router.post('/api/events', async (req, res) => {
 
   try {
     const { isUserAuthenticated } = await import('./services/auth.service.js');
-    const { createEvent } = await import('./services/google-calendar.service.js');
     const { env } = await import('./utils/env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const eventData = {
-      title,
-      date,
+      title, date,
       startTime: startTime || '09:00',
       endTime: endTime || '10:00',
       isAllDay: isAllDay || false,
-      location,
-      url,
-      memo
+      location, url, memo
     };
 
-    const result = await createEvent(eventData, userId, env);
-    res.json(result);
+    if (await isUserAuthenticated(userId, env)) {
+      const { createEvent } = await import('./services/google-calendar.service.js');
+      const result = await createEvent(eventData, userId, env);
+      res.json(result);
+    } else {
+      const { createLocalEvent } = await import('./services/local-calendar.service.js');
+      const result = await createLocalEvent(userId, eventData);
+      res.json(result);
+    }
   } catch (err) {
     console.error('Create event error:', err);
     res.status(500).json({ error: err.message });
@@ -328,14 +349,15 @@ router.delete('/api/events', async (req, res) => {
 
   try {
     const { isUserAuthenticated } = await import('./services/auth.service.js');
-    const { deleteEvent } = await import('./services/google-calendar.service.js');
     const { env } = await import('./utils/env-adapter.js');
 
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    if (eventId.startsWith('local_') || !await isUserAuthenticated(userId, env)) {
+      const { deleteLocalEvent } = await import('./services/local-calendar.service.js');
+      await deleteLocalEvent(userId, eventId);
+    } else {
+      const { deleteEvent } = await import('./services/google-calendar.service.js');
+      await deleteEvent(eventId, userId, env);
     }
-
-    await deleteEvent(eventId, userId, env);
     res.json({ success: true });
   } catch (err) {
     console.error('Delete event error:', err);
@@ -1266,6 +1288,56 @@ router.options('/api/*', (req, res) => {
     'Access-Control-Allow-Headers': 'Content-Type'
   });
   res.sendStatus(204);
+});
+
+// ========== バックアップ API ==========
+
+// エクスポート (ics / json)
+router.get('/api/backup/export', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, format } = req.query;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { exportToICS, exportToJSON } = await import('./services/backup.service.js');
+
+    if (format === 'ics') {
+      const ics = await exportToICS(userId);
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('Content-Disposition', 'attachment; filename="calendar-backup.ics"');
+      res.send(ics);
+    } else {
+      const data = await exportToJSON(userId);
+      res.set('Content-Type', 'application/json; charset=utf-8');
+      res.set('Content-Disposition', 'attachment; filename="calendar-backup.json"');
+      res.json(data);
+    }
+  } catch (err) {
+    console.error('Backup export error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// インポート (ics)
+router.post('/api/backup/import', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId, icsData } = req.body;
+
+  if (!userId || !icsData) {
+    return res.status(400).json({ error: 'userId, icsData required' });
+  }
+
+  try {
+    const { importFromICS } = await import('./services/backup.service.js');
+    const result = await importFromICS(userId, icsData);
+    res.json(result);
+  } catch (err) {
+    console.error('Backup import error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

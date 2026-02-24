@@ -1573,6 +1573,22 @@ export function generateLiffHtml(liffId, apiBase) {
             </label>
           </div>
         </div>
+        <div class="settings-group">
+          <div class="settings-group-title">データバックアップ</div>
+          <div class="settings-item clickable" onclick="exportBackup('ics')">
+            <span class="settings-item-label">📥 iCalendar (.ics) でエクスポート</span>
+            <span class="settings-item-value" style="font-size:12px;color:var(--sub);">iCloud等</span>
+          </div>
+          <div class="settings-item clickable" onclick="exportBackup('json')">
+            <span class="settings-item-label">📥 JSON でエクスポート</span>
+            <span class="settings-item-value" style="font-size:12px;color:var(--sub);">全データ</span>
+          </div>
+          <div class="settings-item clickable" onclick="document.getElementById('ics-import-input').click()">
+            <span class="settings-item-label">📤 .ics ファイルをインポート</span>
+            <span class="settings-item-value" style="font-size:12px;color:var(--sub);">取込</span>
+          </div>
+          <input type="file" id="ics-import-input" accept=".ics" style="display:none;" onchange="importICSFile(this)">
+        </div>
       </div>
     </div>
 
@@ -2097,6 +2113,53 @@ export function generateLiffHtml(liffId, apiBase) {
         });
       } catch (e) { console.error('Save settings error:', e); }
     }
+
+    // バックアップ機能
+    async function exportBackup(format) {
+      try {
+        showToast('エクスポート中...');
+        const url = API_BASE + '/api/backup/export?userId=' + userId + '&format=' + format;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Export failed');
+
+        const blob = await response.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = format === 'ics' ? 'calendar-backup.ics' : 'calendar-backup.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+        showToast('エクスポート完了！');
+      } catch (err) {
+        console.error('Export error:', err);
+        showToast('エクスポートに失敗しました');
+      }
+    }
+    window.exportBackup = exportBackup;
+
+    async function importICSFile(input) {
+      if (!input.files || !input.files[0]) return;
+      const file = input.files[0];
+      try {
+        showToast('インポート中...');
+        const text = await file.text();
+        const response = await fetch(API_BASE + '/api/backup/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, icsData: text })
+        });
+        const result = await response.json();
+        showToast(result.imported + ' 件のイベントをインポートしました');
+        input.value = '';
+        await loadEvents();
+        renderCalendar();
+      } catch (err) {
+        console.error('Import error:', err);
+        showToast('インポートに失敗しました');
+      }
+    }
+    window.importICSFile = importICSFile;
 
     const WEEKDAYS_JA = ['日', '月', '火', '水', '木', '金', '土'];
     const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
