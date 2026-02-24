@@ -1395,39 +1395,43 @@ export function generateLiffHtml(liffId, apiBase) {
       </div>
 
       <div id="tasks" class="section">
-        <div class="task-tabs" id="task-tabs"></div>
-        <div class="task-list" id="task-list">
-          <div class="loading"><div class="loading-spinner"></div>読み込み中...</div>
+        <div style="background:var(--header-bg);padding:14px 18px 8px;flex-shrink:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:22px;font-weight:var(--header-font-weight);color:var(--header-color);letter-spacing:-0.5px;">タスク</div>
+            <div id="task-count-badge" style="font-size:11px;font-weight:600;color:var(--primary);background:color-mix(in srgb, var(--primary) 10%, transparent);padding:3px 10px;border-radius:12px;"></div>
+          </div>
+          <div class="task-tabs" id="task-tabs" style="display:flex;overflow-x:auto;gap:6px;padding:8px 0 4px;"></div>
         </div>
-        <div class="completed-tasks-toggle" onclick="toggleShowCompletedTasks()">
-          <span id="completed-toggle-icon">▶</span>
-          <span>完了済みタスク</span>
-          <span id="completed-count" class="completed-count"></span>
+        <div style="flex:1;overflow-y:auto;padding:0 8px 8px;">
+          <div class="task-list" id="task-list">
+            <div class="loading"><div class="loading-spinner"></div>読み込み中...</div>
+          </div>
+          <div class="completed-tasks-toggle" onclick="toggleShowCompletedTasks()" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;font-size:13px;color:var(--sub);border-top:1px solid var(--border);margin-top:4px;">
+            <span id="completed-toggle-icon" style="font-size:10px;">▶</span>
+            <span>完了済みタスク</span>
+            <span id="completed-count" style="font-size:11px;background:color-mix(in srgb, var(--border) 50%, transparent);padding:1px 8px;border-radius:10px;"></span>
+          </div>
+          <div class="completed-task-list" id="completed-task-list" style="display:none;"></div>
         </div>
-        <div class="completed-task-list" id="completed-task-list" style="display:none;"></div>
       </div>
 
       <div id="memo" class="section">
-        <div class="memo-search">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-          <input type="text" id="memo-search-input" placeholder="メモを検索...">
-          <button class="memo-search-clear" id="memo-search-clear" onclick="clearMemoSearch()">×</button>
+        <div style="background:var(--header-bg);padding:14px 18px 8px;flex-shrink:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:22px;font-weight:var(--header-font-weight);color:var(--header-color);letter-spacing:-0.5px;">メモ</div>
+            <div class="memo-style-selector" style="display:flex;gap:4px;">
+              <button class="memo-style-btn active" data-style="list" style="padding:4px 10px;border-radius:var(--tab-radius);border:1px solid var(--border);background:var(--tab-active-bg);color:var(--tab-active-color);font-size:11px;font-weight:600;cursor:pointer;">📋</button>
+              <button class="memo-style-btn" data-style="grid" style="padding:4px 10px;border-radius:var(--tab-radius);border:1px solid var(--border);background:transparent;color:var(--sub);font-size:11px;font-weight:600;cursor:pointer;">📌</button>
+              <button class="memo-style-btn" data-style="compact" style="padding:4px 10px;border-radius:var(--tab-radius);border:1px solid var(--border);background:transparent;color:var(--sub);font-size:11px;font-weight:600;cursor:pointer;">📄</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;background:color-mix(in srgb, var(--border) 30%, transparent);border-radius:var(--tab-radius);padding:6px 10px;">
+            <span style="font-size:14px;">🔍</span>
+            <input type="text" id="memo-search-input" placeholder="メモを検索..." style="flex:1;border:none;background:transparent;font-size:13px;outline:none;color:var(--text);">
+            <button id="memo-search-clear" onclick="clearMemoSearch()" style="border:none;background:transparent;font-size:16px;cursor:pointer;color:var(--sub);display:none;">×</button>
+          </div>
         </div>
-        <div class="memo-style-selector">
-          <button class="memo-style-btn active" data-style="list">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
-            リスト
-          </button>
-          <button class="memo-style-btn" data-style="grid">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/></svg>
-            グリッド
-          </button>
-          <button class="memo-style-btn" data-style="compact">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 14h4v-4H4v4zm0 5h4v-4H4v4zM4 9h4V5H4v4zm5 5h12v-4H9v4zm0 5h12v-4H9v4zM9 5v4h12V5H9z"/></svg>
-            コンパクト
-          </button>
-        </div>
-        <div id="memo-container">
+        <div id="memo-container" style="flex:1;overflow-y:auto;padding:8px;">
           <div class="loading"><div class="loading-spinner"></div>読み込み中...</div>
         </div>
       </div>
@@ -2909,6 +2913,8 @@ export function generateLiffHtml(liffId, apiBase) {
 
       const container = document.getElementById('task-list');
       let allTasks = getAllTasks();
+      const badge = document.getElementById('task-count-badge');
+      if (badge) badge.textContent = allTasks.length + '件';
 
       // フィルタリング
       if (taskFilter === 'personal') {
