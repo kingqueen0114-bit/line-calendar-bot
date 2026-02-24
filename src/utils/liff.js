@@ -1466,28 +1466,53 @@ export function generateLiffHtml(liffId, apiBase) {
           </div>
         </div>
         <div class="settings-group">
-          <div class="settings-group-title">テーマカラー</div>
-          <div class="color-picker" id="theme-color-picker" style="padding:12px;">
-            <div class="color-option selected" data-color="#06c755" style="background:#06c755;"></div>
-            <div class="color-option" data-color="#10b981" style="background:#10b981;"></div>
-            <div class="color-option" data-color="#14b8a6" style="background:#14b8a6;"></div>
-            <div class="color-option" data-color="#06b6d4" style="background:#06b6d4;"></div>
-            <div class="color-option" data-color="#0ea5e9" style="background:#0ea5e9;"></div>
-            <div class="color-option" data-color="#3b82f6" style="background:#3b82f6;"></div>
-            <div class="color-option" data-color="#6366f1" style="background:#6366f1;"></div>
-            <div class="color-option" data-color="#8b5cf6" style="background:#8b5cf6;"></div>
-            <div class="color-option" data-color="#a855f7" style="background:#a855f7;"></div>
-            <div class="color-option" data-color="#d946ef" style="background:#d946ef;"></div>
-            <div class="color-option" data-color="#ec4899" style="background:#ec4899;"></div>
-            <div class="color-option" data-color="#f43f5e" style="background:#f43f5e;"></div>
-            <div class="color-option" data-color="#ef4444" style="background:#ef4444;"></div>
-            <div class="color-option" data-color="#f97316" style="background:#f97316;"></div>
-            <div class="color-option" data-color="#f59e0b" style="background:#f59e0b;"></div>
-            <div class="color-option" data-color="#eab308" style="background:#eab308;"></div>
-            <div class="color-option" data-color="#84cc16" style="background:#84cc16;"></div>
-            <div class="color-option" data-color="#22c55e" style="background:#22c55e;"></div>
-            <div class="color-option" data-color="#78716c" style="background:#78716c;"></div>
-            <div class="color-option" data-color="#64748b" style="background:#64748b;"></div>
+          <div class="settings-group-title">UIテンプレート</div>
+          <div id="template-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 16px;">
+            <div class="tmpl-option" data-tmpl="minimal" style="padding:10px;border-radius:8px;border:2px solid var(--primary);cursor:pointer;text-align:center;">
+              <div style="font-size:13px;font-weight:700;">Minimal</div>
+              <div style="font-size:10px;color:var(--sub);">直線的・シンプル</div>
+            </div>
+            <div class="tmpl-option" data-tmpl="soft" style="padding:10px;border-radius:8px;border:2px solid var(--border);cursor:pointer;text-align:center;">
+              <div style="font-size:13px;font-weight:700;">Soft</div>
+              <div style="font-size:10px;color:var(--sub);">丸み・パステル</div>
+            </div>
+            <div class="tmpl-option" data-tmpl="bold" style="padding:10px;border-radius:8px;border:2px solid var(--border);cursor:pointer;text-align:center;">
+              <div style="font-size:13px;font-weight:700;">Bold</div>
+              <div style="font-size:10px;color:var(--sub);">力強い・コントラスト</div>
+            </div>
+            <div class="tmpl-option" data-tmpl="glass" style="padding:10px;border-radius:8px;border:2px solid var(--border);cursor:pointer;text-align:center;">
+              <div style="font-size:13px;font-weight:700;">Glass</div>
+              <div style="font-size:10px;color:var(--sub);">半透明・すりガラス</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="settings-group-title">カラーテーマ</div>
+          <div id="color-theme-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 16px;">
+            <div class="clr-option" data-clr="ocean" style="padding:8px;border-radius:8px;border:2px solid var(--primary);cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <div style="width:20px;height:20px;border-radius:50%;background:#2563EB;flex-shrink:0;"></div>
+              <span style="font-size:12px;font-weight:600;">Ocean</span>
+            </div>
+            <div class="clr-option" data-clr="terracotta" style="padding:8px;border-radius:8px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <div style="width:20px;height:20px;border-radius:50%;background:#C4733B;flex-shrink:0;"></div>
+              <span style="font-size:12px;font-weight:600;">Terra</span>
+            </div>
+            <div class="clr-option" data-clr="forest" style="padding:8px;border-radius:8px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <div style="width:20px;height:20px;border-radius:50%;background:#16A34A;flex-shrink:0;"></div>
+              <span style="font-size:12px;font-weight:600;">Forest</span>
+            </div>
+            <div class="clr-option" data-clr="midnight" style="padding:8px;border-radius:8px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <div style="width:20px;height:20px;border-radius:50%;background:#818CF8;flex-shrink:0;border:1px solid #ccc;"></div>
+              <span style="font-size:12px;font-weight:600;">Night</span>
+            </div>
+            <div class="clr-option" data-clr="rose" style="padding:8px;border-radius:8px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <div style="width:20px;height:20px;border-radius:50%;background:#E11D48;flex-shrink:0;"></div>
+              <span style="font-size:12px;font-weight:600;">Rosé</span>
+            </div>
+            <div class="clr-option" data-clr="mono" style="padding:8px;border-radius:8px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <div style="width:20px;height:20px;border-radius:50%;background:#171717;flex-shrink:0;"></div>
+              <span style="font-size:12px;font-weight:600;">Mono</span>
+            </div>
           </div>
         </div>
         <div class="settings-group">
@@ -1512,6 +1537,15 @@ export function generateLiffHtml(liffId, apiBase) {
             <select class="form-select" id="weekday-format-select" style="width:auto;padding:8px 12px;font-size:14px;">
               <option value="ja">漢字 (日月火...)</option>
               <option value="en">英語 (Sun Mon...)</option>
+            </select>
+          </div>
+          <div class="settings-item">
+            <span class="settings-item-label">カレンダー下部表示</span>
+            <select class="form-select" id="bottom-view-select" style="width:auto;padding:8px 12px;font-size:14px;" onchange="onBottomViewChange(this.value)">
+              <option value="both">予定＋タスク</option>
+              <option value="events">予定のみ</option>
+              <option value="tasks">タスクのみ</option>
+              <option value="none">非表示</option>
             </select>
           </div>
           <div class="settings-item">
@@ -4661,6 +4695,43 @@ export function generateLiffHtml(liffId, apiBase) {
       }
     }
     switchTabFromUrl();
+
+    // Template grid click handlers
+    document.querySelectorAll('.tmpl-option').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.tmpl-option').forEach(t => t.style.borderColor = 'var(--border)');
+        el.style.borderColor = 'var(--primary)';
+        currentTemplate = el.dataset.tmpl;
+        applyTheme(currentColorTheme, currentTemplate);
+        saveThemeSettings({ uiTemplate: currentTemplate });
+        renderCalendar();
+      });
+    });
+
+    // Color theme grid click handlers
+    document.querySelectorAll('.clr-option').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.clr-option').forEach(c => c.style.borderColor = 'var(--border)');
+        el.style.borderColor = 'var(--primary)';
+        currentColorTheme = el.dataset.clr;
+        applyTheme(currentColorTheme, currentTemplate);
+        saveThemeSettings({ colorTheme: currentColorTheme });
+        // Update selection borders after theme change
+        setTimeout(() => {
+          document.querySelectorAll('.tmpl-option').forEach(t => t.style.borderColor = t.dataset.tmpl === currentTemplate ? 'var(--primary)' : 'var(--border)');
+          document.querySelectorAll('.clr-option').forEach(c => c.style.borderColor = c.dataset.clr === currentColorTheme ? 'var(--primary)' : 'var(--border)');
+        }, 10);
+        renderCalendar();
+      });
+    });
+
+    // Bottom view change
+    function onBottomViewChange(value) {
+      calendarBottomView = value;
+      saveThemeSettings({ calendarBottomView: value });
+      renderCalendar();
+    }
+    window.onBottomViewChange = onBottomViewChange;
 
     initializeLiff();
   </script>
