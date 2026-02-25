@@ -300,9 +300,16 @@ router.post('/api/tasks/update', async (req, res) => {
   }
 
   try {
-    const { updateTask } = await import('./services/google-tasks.service.js');
+    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { env } = await import('./utils/env-adapter.js');
-    await updateTask(taskId, listId, { title, due }, userId, env);
+
+    if (taskId.startsWith('local_') || listId === 'local' || !await isUserAuthenticated(userId, env)) {
+      const { updateLocalTask } = await import('./services/local-calendar.service.js');
+      await updateLocalTask(userId, taskId, { title, due });
+    } else {
+      const { updateTask } = await import('./services/google-tasks.service.js');
+      await updateTask(taskId, listId, { title, due }, userId, env);
+    }
     res.json({ success: true });
   } catch (err) {
     console.error('LIFF API update task error:', err);
@@ -382,7 +389,7 @@ router.post('/api/events/update', async (req, res) => {
   }
 
   try {
-    const { updateEvent } = await import('./services/google-calendar.service.js');
+    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { env } = await import('./utils/env-adapter.js');
     const updateData = {};
     if (title) updateData.title = title;
@@ -391,8 +398,20 @@ router.post('/api/events/update', async (req, res) => {
     if (location !== undefined) updateData.location = location;
     if (description !== undefined) updateData.description = description;
 
-    const result = await updateEvent(eventId, updateData, userId, env);
-    res.json(result);
+    if (eventId.startsWith('local_') || !await isUserAuthenticated(userId, env)) {
+      const { updateLocalEvent } = await import('./services/local-calendar.service.js');
+      // ローカルイベント向けにデータ変換
+      const localData = {};
+      if (title) localData.summary = title;
+      if (description !== undefined) localData.description = description;
+      if (location !== undefined) localData.location = location;
+      const result = await updateLocalEvent(userId, eventId, localData);
+      res.json(result);
+    } else {
+      const { updateEvent } = await import('./services/google-calendar.service.js');
+      const result = await updateEvent(eventId, updateData, userId, env);
+      res.json(result);
+    }
   } catch (err) {
     console.error('Update event error:', err);
     if (err.status === 404) {
@@ -412,13 +431,21 @@ router.get('/api/tasklists', async (req, res) => {
   }
 
   try {
-    const { getTaskLists } = await import('./services/google-tasks.service.js');
+    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { env } = await import('./utils/env-adapter.js');
-    const lists = await getTaskLists(userId, env);
-    res.json(lists);
+
+    if (await isUserAuthenticated(userId, env)) {
+      const { getTaskLists } = await import('./services/google-tasks.service.js');
+      const lists = await getTaskLists(userId, env);
+      res.json(lists);
+    } else {
+      // ローカルモードではデフォルトリストを返す
+      res.json([{ id: 'local', title: 'マイタスク' }]);
+    }
   } catch (err) {
     console.error('Get tasklists error:', err);
-    res.status(500).json({ error: err.message });
+    // フォールバック
+    res.json([{ id: 'local', title: 'マイタスク' }]);
   }
 });
 
@@ -432,11 +459,19 @@ router.post('/api/tasks', async (req, res) => {
   }
 
   try {
-    const { createTask } = await import('./services/google-tasks.service.js');
+    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { env } = await import('./utils/env-adapter.js');
-    const taskData = { title, due, listName };
-    const result = await createTask(taskData, userId, env);
-    res.json(result);
+
+    if (await isUserAuthenticated(userId, env)) {
+      const { createTask } = await import('./services/google-tasks.service.js');
+      const taskData = { title, due, listName };
+      const result = await createTask(taskData, userId, env);
+      res.json(result);
+    } else {
+      const { createLocalTask } = await import('./services/local-calendar.service.js');
+      const result = await createLocalTask(userId, { title, due });
+      res.json(result);
+    }
   } catch (err) {
     console.error('Create task error:', err);
     res.status(500).json({ error: err.message });
@@ -453,9 +488,16 @@ router.delete('/api/tasks', async (req, res) => {
   }
 
   try {
-    const { deleteTask } = await import('./services/google-tasks.service.js');
+    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { env } = await import('./utils/env-adapter.js');
-    await deleteTask(taskId, listId, userId, env);
+
+    if (taskId.startsWith('local_') || listId === 'local' || !await isUserAuthenticated(userId, env)) {
+      const { deleteLocalTask } = await import('./services/local-calendar.service.js');
+      await deleteLocalTask(userId, taskId);
+    } else {
+      const { deleteTask } = await import('./services/google-tasks.service.js');
+      await deleteTask(taskId, listId, userId, env);
+    }
     res.json({ success: true });
   } catch (err) {
     console.error('Delete task error:', err);
