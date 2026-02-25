@@ -159,14 +159,8 @@ router.get('/api/calendars', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { getCalendarList } = await import('./services/google-calendar.service.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const calendars = await getCalendarList(userId, env);
     res.json(calendars);
   } catch (err) {
@@ -306,14 +300,8 @@ router.post('/api/tasks/update', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { updateTask } = await import('./services/google-tasks.service.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     await updateTask(taskId, listId, { title, due }, userId, env);
     res.json({ success: true });
   } catch (err) {
@@ -332,7 +320,6 @@ router.post('/api/events', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { env } = await import('./utils/env-adapter.js');
 
     const eventData = {
@@ -395,14 +382,8 @@ router.post('/api/events/update', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { updateEvent } = await import('./services/google-calendar.service.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated', reauth: true });
-    }
-
     const updateData = {};
     if (title) updateData.title = title;
     if (startTime) updateData.startTime = startTime;
@@ -431,14 +412,8 @@ router.get('/api/tasklists', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { getTaskLists } = await import('./services/google-tasks.service.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const lists = await getTaskLists(userId, env);
     res.json(lists);
   } catch (err) {
@@ -457,14 +432,8 @@ router.post('/api/tasks', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { createTask } = await import('./services/google-tasks.service.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const taskData = { title, due, listName };
     const result = await createTask(taskData, userId, env);
     res.json(result);
@@ -484,14 +453,8 @@ router.delete('/api/tasks', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { deleteTask } = await import('./services/google-tasks.service.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     await deleteTask(taskId, listId, userId, env);
     res.json({ success: true });
   } catch (err) {
@@ -510,14 +473,8 @@ router.get('/api/memos', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { getMemos } = await import('./database/memo.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const memos = await getMemos(userId, env);
     res.json(memos);
   } catch (err) {
@@ -540,14 +497,8 @@ router.post('/api/memos', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { createMemo, uploadImage } = await import('./database/memo.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     let imageUrl = null;
 
     // 画像がある場合はGCSにアップロード
@@ -593,14 +544,8 @@ router.delete('/api/memos', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { deleteMemo } = await import('./database/memo.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     await deleteMemo(memoId, userId, env);
     res.json({ success: true });
   } catch (err) {
@@ -619,14 +564,8 @@ router.get('/api/projects', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { getUserProjects } = await import('./database/project.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const projects = await getUserProjects(userId, env);
     res.json(projects);
   } catch (err) {
@@ -645,14 +584,8 @@ router.post('/api/projects', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { createProject } = await import('./database/project.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const project = await createProject({ name, description, color, isPersonal }, userId, env);
     res.json(project);
   } catch (err) {
@@ -671,14 +604,8 @@ router.post('/api/projects/join', inviteCodeRateLimit, async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { joinProjectByCode } = await import('./database/project.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const project = await joinProjectByCode(inviteCode.toUpperCase(), userId, env);
     res.json(project);
   } catch (err) {
@@ -697,14 +624,8 @@ router.post('/api/projects/leave', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { leaveProject } = await import('./database/project.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     await leaveProject(projectId, userId, env);
     res.json({ success: true });
   } catch (err) {
@@ -723,14 +644,8 @@ router.post('/api/projects/update', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { updateProject } = await import('./database/project.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const project = await updateProject(projectId, { name, color }, userId, env);
     res.json(project);
   } catch (err) {
@@ -749,14 +664,8 @@ router.delete('/api/projects', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { deleteProject } = await import('./database/project.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     await deleteProject(projectId, userId, env);
     res.json({ success: true });
   } catch (err) {
@@ -775,14 +684,8 @@ router.get('/api/projects/members', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { getProjectMembers } = await import('./database/project.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const members = await getProjectMembers(projectId, env);
     res.json(members);
   } catch (err) {
@@ -801,14 +704,8 @@ router.get('/api/shared-events', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { getAllSharedEventsForUser, formatSharedEventForDisplay } = await import('./database/shared-calendar.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const events = await getAllSharedEventsForUser(userId, env, 90);
     const formatted = events.map(formatSharedEventForDisplay);
     res.json(formatted);
@@ -828,15 +725,9 @@ router.post('/api/shared-events', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { createSharedEvent } = await import('./database/shared-calendar.js');
     const { getProject } = await import('./database/project.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     // プロジェクトのメンバーかチェック
     const project = await getProject(projectId, env);
     if (!project || !project.members.includes(userId)) {
@@ -870,15 +761,9 @@ router.delete('/api/shared-events', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { deleteSharedEvent } = await import('./database/shared-calendar.js');
     const { getProject } = await import('./database/project.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     // プロジェクトのメンバーかチェック
     const project = await getProject(projectId, env);
     if (!project || !project.members.includes(userId)) {
@@ -907,14 +792,8 @@ router.get('/api/shared-tasklists', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { getUserSharedTaskLists } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const lists = await getUserSharedTaskLists(userId, env);
     res.json(lists);
   } catch (err) {
@@ -933,14 +812,8 @@ router.post('/api/shared-tasklists', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { createSharedTaskList } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const list = await createSharedTaskList({ name, color }, userId, env);
     res.json(list);
   } catch (err) {
@@ -959,14 +832,8 @@ router.post('/api/shared-tasklists/update', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { updateSharedTaskList } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const list = await updateSharedTaskList(listId, { name, color }, userId, env);
     res.json(list);
   } catch (err) {
@@ -985,14 +852,8 @@ router.post('/api/shared-tasklists/join', inviteCodeRateLimit, async (req, res) 
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { joinTaskListByCode } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const list = await joinTaskListByCode(inviteCode.toUpperCase(), userId, env);
     res.json(list);
   } catch (err) {
@@ -1011,14 +872,8 @@ router.post('/api/shared-tasklists/leave', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { leaveSharedTaskList } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     await leaveSharedTaskList(listId, userId, env);
     res.json({ success: true });
   } catch (err) {
@@ -1037,14 +892,8 @@ router.delete('/api/shared-tasklists', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { deleteSharedTaskList } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     await deleteSharedTaskList(listId, userId, env);
     res.json({ success: true });
   } catch (err) {
@@ -1063,14 +912,8 @@ router.get('/api/shared-tasks', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { getAllSharedTasksForUser } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const tasks = await getAllSharedTasksForUser(userId, env);
     res.json(tasks);
   } catch (err) {
@@ -1089,14 +932,8 @@ router.post('/api/shared-tasks', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { createSharedTask } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const task = await createSharedTask({ title, due }, listId, userId, env);
     res.json(task);
   } catch (err) {
@@ -1115,14 +952,8 @@ router.post('/api/shared-tasks/complete', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { completeSharedTask } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     await completeSharedTask(taskId, listId, userId, env, userName);
     res.json({ success: true });
   } catch (err) {
@@ -1141,14 +972,8 @@ router.delete('/api/shared-tasks', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { deleteSharedTask } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     await deleteSharedTask(taskId, listId, userId, env);
     res.json({ success: true });
   } catch (err) {
@@ -1167,14 +992,8 @@ router.post('/api/shared-tasks/uncomplete', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { uncompleteSharedTask } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     await uncompleteSharedTask(taskId, listId, userId, env);
     res.json({ success: true });
   } catch (err) {
@@ -1193,14 +1012,8 @@ router.get('/api/shared-tasks/completed', async (req, res) => {
   }
 
   try {
-    const { isUserAuthenticated } = await import('./services/auth.service.js');
     const { getAllCompletedSharedTasksForUser } = await import('./shared-tasklist.js');
     const { env } = await import('./utils/env-adapter.js');
-
-    if (!await isUserAuthenticated(userId, env)) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-
     const tasks = await getAllCompletedSharedTasksForUser(userId, env);
     res.json(tasks);
   } catch (err) {
