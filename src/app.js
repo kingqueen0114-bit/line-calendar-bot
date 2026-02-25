@@ -401,14 +401,18 @@ async function checkAndSendNotifications(env) {
           continue;
         }
 
-        // 認証チェック
+        // 認証チェック → Google or ローカルで取得
         const isAuthenticated = await isUserAuthenticated(userId, env);
-        if (!isAuthenticated) {
-          continue;
-        }
 
-        // 今後30分以内の予定を取得
-        const events = await getUpcomingEvents(userId, env, 1);
+        let events = [];
+        if (isAuthenticated) {
+          events = await getUpcomingEvents(userId, env, 1);
+        } else {
+          try {
+            const { getLocalEvents } = await import('./services/local-calendar.service.js');
+            events = await getLocalEvents(userId, 1);
+          } catch (e) { /* no local events */ }
+        }
 
         for (const event of events) {
           const eventStart = event.start.dateTime
@@ -444,7 +448,15 @@ async function checkAndSendNotifications(env) {
           const taskNotified = await env.NOTIFICATIONS.get(todayKey);
 
           if (!taskNotified) {
-            const tasks = await getAllIncompleteTasks(userId, env);
+            let tasks = [];
+            if (isAuthenticated) {
+              tasks = await getAllIncompleteTasks(userId, env);
+            } else {
+              try {
+                const { getLocalTasks } = await import('./services/local-calendar.service.js');
+                tasks = await getLocalTasks(userId);
+              } catch (e) { /* no local tasks */ }
+            }
             const today = jstNow.toISOString().split('T')[0];
             const todayTasks = tasks.filter(task => {
               if (!task.due) return false;
