@@ -1441,8 +1441,14 @@ export function generateLiffHtml(liffId, apiBase) {
             <span class="settings-item-value" id="settings-username">-</span>
           </div>
           <div class="settings-item" id="google-auth-status">
-            <span class="settings-item-label">Google連携</span>
-            <span class="settings-item-value" id="google-auth-value">確認中...</span>
+            <div>
+              <span class="settings-item-label">Google連携</span>
+              <div id="google-auth-detail" style="font-size:11px;color:var(--sub);margin-top:2px;">確認中...</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="google-sync-toggle" onchange="toggleGoogleSync(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
           </div>
         </div>
         <div class="settings-group">
@@ -4373,20 +4379,62 @@ export function generateLiffHtml(liffId, apiBase) {
 
     function updateAuthDisplay() {
       const authBanner = document.getElementById('auth-banner');
-      const googleAuthValue = document.getElementById('google-auth-value');
+      const toggle = document.getElementById('google-sync-toggle');
+      const detail = document.getElementById('google-auth-detail');
 
       if (isGoogleAuthenticated) {
         authBanner.classList.remove('show');
         document.body.classList.remove('needs-auth');
-        googleAuthValue.innerHTML = '<span style="color:var(--primary);">✓ 連携済み</span>';
+        toggle.checked = true;
+        detail.textContent = 'Googleカレンダーと同期中';
+        detail.style.color = 'var(--primary)';
       } else {
-        authBanner.classList.add('show');
-        document.body.classList.add('needs-auth');
-        if (googleAuthUrl) {
-          googleAuthValue.innerHTML = '<button onclick="openGoogleAuth()" style="color:#ff9800;background:none;border:none;text-decoration:underline;font-size:inherit;cursor:pointer;">連携する</button>';
+        authBanner.classList.remove('show');
+        document.body.classList.remove('needs-auth');
+        toggle.checked = false;
+        detail.textContent = 'ローカルモード（端末内保存）';
+        detail.style.color = 'var(--sub)';
+      }
+    }
+
+    function toggleGoogleSync(checked) {
+      if (checked) {
+        // ONにする → Google認証へ
+        openGoogleAuth();
+        // 認証完了前にトグルを戻す（visibilitychange後に再設定）
+        const toggle = document.getElementById('google-sync-toggle');
+        toggle.checked = isGoogleAuthenticated;
+      } else {
+        // OFFにする → 確認ダイアログ
+        if (confirm('Google連携を解除しますか？\\n\\nローカルモードに切り替わります。\\nGoogleカレンダーのデータはGoogle側に残ります。')) {
+          disconnectGoogle();
         } else {
-          googleAuthValue.textContent = '未連携';
+          const toggle = document.getElementById('google-sync-toggle');
+          toggle.checked = true;
         }
+      }
+    }
+    window.toggleGoogleSync = toggleGoogleSync;
+
+    async function disconnectGoogle() {
+      try {
+        showToast('Google連携を解除中...');
+        await fetch(API_BASE + '/api/auth/disconnect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        isGoogleAuthenticated = false;
+        googleAuthUrl = null;
+        updateAuthDisplay();
+        showToast('ローカルモードに切り替えました');
+        // ローカルデータを再読み込み
+        await loadAllData();
+      } catch (err) {
+        console.error('Disconnect error:', err);
+        showToast('解除に失敗しました');
+        const toggle = document.getElementById('google-sync-toggle');
+        toggle.checked = true;
       }
     }
 

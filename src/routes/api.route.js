@@ -65,6 +65,26 @@ router.get('/api/auth-status', async (req, res) => {
   }
 });
 
+// Google連携を解除
+router.post('/api/auth/disconnect', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const { userId } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'userId required' });
+  }
+
+  try {
+    const { revokeUserTokens } = await import('./services/auth.service.js');
+    const { env } = await import('./utils/env-adapter.js');
+    await revokeUserTokens(userId, env);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Auth disconnect error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // LIFF API: 認証URL取得
 router.get('/api/auth-url', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
