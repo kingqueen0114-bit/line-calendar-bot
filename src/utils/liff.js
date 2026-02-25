@@ -4429,7 +4429,10 @@ export function generateLiffHtml(liffId, apiBase) {
         updateAuthDisplay();
         showToast('ローカルモードに切り替えました');
         // ローカルデータを再読み込み
-        await loadAllData();
+        await Promise.all([loadEvents(), loadTasks(), loadTaskLists(), loadMemos(), loadProjects()]);
+        renderCalendar();
+        renderTasks();
+        renderMemos();
       } catch (err) {
         console.error('Disconnect error:', err);
         showToast('解除に失敗しました');
@@ -4734,7 +4737,7 @@ export function generateLiffHtml(liffId, apiBase) {
         const container = document.getElementById('calendar-sync-list');
 
         if (calendarsRes.status === 401 || settingsRes.status === 401) {
-          handle401Error();
+          container.innerHTML = '<div style="padding:14px 16px;color:var(--sub);font-size:13px;">Googleカレンダーに連携すると、同期するカレンダーを選択できます。</div>';
           return;
         }
 
