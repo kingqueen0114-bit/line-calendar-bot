@@ -40,13 +40,14 @@ export async function createLocalEvent(userId, eventData) {
 }
 
 export async function getLocalEvents(userId, days = 90) {
-    const results = await env.NOTIFICATIONS.list(`local_event:${userId}:`);
+    const result = await env.NOTIFICATIONS.list({ prefix: `local_event:${userId}:` });
+    const keys = result.keys || [];
     const now = new Date();
     const cutoff = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
     const pastCutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const events = [];
-    for (const item of results) {
+    for (const item of keys) {
         try {
             const event = typeof item.value === 'string' ? JSON.parse(item.value) : item.value;
             const eventDate = event.start?.dateTime || event.start?.date;
@@ -105,10 +106,11 @@ export async function createLocalTask(userId, taskData) {
 }
 
 export async function getLocalTasks(userId) {
-    const results = await env.NOTIFICATIONS.list(`local_task:${userId}:`);
+    const result = await env.NOTIFICATIONS.list({ prefix: `local_task:${userId}:` });
+    const keys = result.keys || [];
     const tasks = [];
 
-    for (const item of results) {
+    for (const item of keys) {
         try {
             const task = typeof item.value === 'string' ? JSON.parse(item.value) : item.value;
             if (task.status !== 'completed') {
@@ -129,10 +131,11 @@ export async function getLocalTasks(userId) {
 }
 
 export async function getLocalCompletedTasks(userId) {
-    const results = await env.NOTIFICATIONS.list(`local_task:${userId}:`);
+    const result = await env.NOTIFICATIONS.list({ prefix: `local_task:${userId}:` });
+    const keys = result.keys || [];
     const tasks = [];
 
-    for (const item of results) {
+    for (const item of keys) {
         try {
             const task = typeof item.value === 'string' ? JSON.parse(item.value) : item.value;
             if (task.status === 'completed') {

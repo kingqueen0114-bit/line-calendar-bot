@@ -69,11 +69,13 @@ export async function updateSharedTaskList(listId, data, userId, envObj) {
 export async function joinTaskListByCode(inviteCode, userId, envObj) {
     const e = envObj || env;
     // 招待コードから共有タスクリストを検索
-    const results = await e.NOTIFICATIONS.list('shared_tasklist:');
+    const result = await e.NOTIFICATIONS.list({ prefix: 'shared_tasklist:', include: ['value'] });
+    const items = result.keys || [];
     let foundList = null;
 
-    for (const item of results) {
+    for (const item of items) {
         try {
+            // item.value は include: ['value'] を指定した場合に利用可能
             const list = typeof item.value === 'string' ? JSON.parse(item.value) : item.value;
             if (list.inviteCode === inviteCode) {
                 foundList = list;
