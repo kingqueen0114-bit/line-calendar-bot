@@ -3364,16 +3364,17 @@ export function generateLiffHtml(liffId, apiBase) {
 
     // URL抽出
     function extractUrls(text) {
-      const urlRegex = /https?:\/\/[^\s\u3000\u300C\u300D\u3001\u3002\uFF01\uFF08\uFF09]+/g;
-      const matches = text.match(urlRegex) || [];
+      var urlRegex = new RegExp('https?://[^\\\\s\\\\u3000\\\\u300C\\\\u300D\\\\u3001\\\\u3002\\\\uFF01\\\\uFF08\\\\uFF09]+', 'g');
+      var matches = text.match(urlRegex) || [];
       // 最大3つまで
-      return [...new Set(matches)].slice(0, 3);
+      return matches.filter(function(v, i, a) { return a.indexOf(v) === i; }).slice(0, 3);
     }
 
     // テキスト内のURLをクリッカブルリンクに変換
     function linkifyText(text) {
-      const escaped = escapeHtml(text);
-      return escaped.replace(/(https?:\/\/[^\s\u3000\u300C\u300D\u3001\u3002\uFF01\uFF08\uFF09&]+(?:&amp;[^\s\u3000\u300C\u300D\u3001\u3002\uFF01\uFF08\uFF09&]*)*)/g,
+      var escaped = escapeHtml(text);
+      var urlPattern = new RegExp('(https?://[^\\\\s\\\\u3000\\\\u300C\\\\u300D\\\\u3001\\\\u3002\\\\uFF01\\\\uFF08\\\\uFF09&]+(?:&amp;[^\\\\s\\\\u3000\\\\u300C\\\\u300D\\\\u3001\\\\u3002\\\\uFF01\\\\uFF08\\\\uFF09&]*)*)', 'g');
+      return escaped.replace(urlPattern,
         '<a href="$1" target="_blank" rel="noopener" style="color:var(--accent);word-break:break-all;" onclick="event.stopPropagation()">$1</a>'
       );
     }
@@ -3402,7 +3403,7 @@ export function generateLiffHtml(liffId, apiBase) {
 
           let previewHtml = '<a class="link-preview" href="' + escapeHtml(url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">';
           if (data.image) {
-            previewHtml += '<img class="link-preview-image" src="' + escapeHtml(data.image) + '" alt="" onerror="this.style.display=\'none\'">';
+            previewHtml += '<img class="link-preview-image" src="' + escapeHtml(data.image) + '" alt="" onerror="this.hidden=true">';
           }
           previewHtml += '<div class="link-preview-body">';
           previewHtml += '<div class="link-preview-title">' + escapeHtml(data.title) + '</div>';
