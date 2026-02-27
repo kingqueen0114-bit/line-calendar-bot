@@ -327,6 +327,7 @@ router.post('/events', async (req, res) => {
   }
 
   try {
+    const { isUserAuthenticated } = await import('../services/auth.service.js');
     const { env } = await import('../utils/env-adapter.js');
 
     const eventData = {
