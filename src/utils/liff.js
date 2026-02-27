@@ -3318,13 +3318,18 @@ export function generateLiffHtml(liffId, apiBase) {
             html += '<img class="memo-card-image" src="' + memo.imageUrl + '" alt="">';
           }
           html += '<div class="memo-card-content">';
-          html += '<div class="memo-card-text" style="white-space: pre-wrap; word-wrap: break-word;">' + (hasText ? linkifyText(memo.text) : '画像メモ') + '</div>';
-          // URL プレビュー用プレースホルダー
           if (hasText) {
-            const urls = extractUrls(memo.text);
-            urls.forEach(u => {
+            var urls = extractUrls(memo.text);
+            var textWithoutUrls = memo.text;
+            urls.forEach(function(u) { textWithoutUrls = textWithoutUrls.replace(u, '').trim(); });
+            if (textWithoutUrls) {
+              html += '<div class="memo-card-text" style="white-space: pre-wrap; word-wrap: break-word;">' + escapeHtml(textWithoutUrls) + '</div>';
+            }
+            urls.forEach(function(u) {
               html += '<div class="link-preview-placeholder" data-url="' + escapeHtml(u) + '"></div>';
             });
+          } else {
+            html += '<div class="memo-card-text">' + '\u753b\u50cfメモ' + '</div>';
           }
           html += '<div class="memo-card-date">' + formatMemoDate(memo.createdAt) + '</div>';
           html += '</div>';
@@ -3335,10 +3340,13 @@ export function generateLiffHtml(liffId, apiBase) {
           }
           html += '<div class="memo-card-content">';
           if (hasText) {
-            html += '<div class="memo-card-text" style="white-space: pre-wrap; word-wrap: break-word;">' + linkifyText(memo.text) + '</div>';
-            // URL プレビュー用プレースホルダー
-            const urls = extractUrls(memo.text);
-            urls.forEach(u => {
+            var urls = extractUrls(memo.text);
+            var textWithoutUrls = memo.text;
+            urls.forEach(function(u) { textWithoutUrls = textWithoutUrls.replace(u, '').trim(); });
+            if (textWithoutUrls) {
+              html += '<div class="memo-card-text" style="white-space: pre-wrap; word-wrap: break-word;">' + escapeHtml(textWithoutUrls) + '</div>';
+            }
+            urls.forEach(function(u) {
               html += '<div class="link-preview-placeholder" data-url="' + escapeHtml(u) + '"></div>';
             });
           }
@@ -4079,7 +4087,7 @@ export function generateLiffHtml(liffId, apiBase) {
     // ========================================
     function updateCalendarSelector(selectedProjectId = '') {
       const select = document.getElementById('event-calendar');
-      let html = '<option value="">Googleカレンダー（個人）</option>';
+      let html = '<option value="">デフォルトカレンダー</option>';
       projects.forEach(p => {
         const selected = p.id === selectedProjectId ? ' selected' : '';
         html += '<option value="' + p.id + '"' + selected + '>' + p.name + '</option>';
@@ -4301,16 +4309,35 @@ export function generateLiffHtml(liffId, apiBase) {
       btn.textContent = '保存中...';
 
       try {
-        if (projectId) {
-          // 共有カレンダーに追加
+        if (editingEvent) {
+          // 編集モード — 更新APIを呼ぶ
+          if (editingEvent._isShared) {
+            await fetch(API_BASE + '/api/shared-events/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, eventId: editingEvent.id, projectId: editingEvent._projectId, title, date, isAllDay, startTime: isAllDay ? null : startTime, endTime: isAllDay ? null : endTime, location, url, memo })
+            });
+            await loadSharedEvents();
+          } else {
+            await fetch(API_BASE + '/api/events/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, eventId: editingEvent.id, title, date, isAllDay, startTime, endTime, location, url, memo })
+            });
+            await loadEvents();
+          }
+          showToast('予定を更新しました');
+        } else if (projectId) {
+          // 新規 — 共有カレンダーに追加
           await fetch(API_BASE + '/api/shared-events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, projectId, title, date, isAllDay, startTime: isAllDay ? null : startTime, endTime: isAllDay ? null : endTime, location, url, memo, reminder })
           });
           await loadSharedEvents();
+          showToast('予定を追加しました');
         } else {
-          // 個人のGoogleカレンダーに追加
+          // 新規 — 個人カレンダーに追加
           const response = await fetch(API_BASE + '/api/events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -4321,12 +4348,12 @@ export function generateLiffHtml(liffId, apiBase) {
             throw new Error(err.error || '予定の作成に失敗しました');
           }
           await loadEvents();
+          showToast('予定を追加しました');
         }
-        showToast('予定を追加しました');
         closeEventModal();
         renderCalendar();
       } catch (error) {
-        console.error('Failed to create event:', error);
+        console.error('Failed to save event:', error);
         showToast(error.message || 'エラーが発生しました');
       } finally {
         btn.disabled = false;

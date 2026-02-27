@@ -125,12 +125,12 @@ router.get('/events', async (req, res) => {
       const { getUpcomingEvents } = await import('../services/google-calendar.service.js');
       const { registerUserForNotifications } = await import('./app.js');
       await registerUserForNotifications(userId, env);
-      const events = await getUpcomingEvents(userId, env, 90);
+      const events = await getUpcomingEvents(userId, env, 365);
       res.json(events);
     } else {
       // ローカルモード（Firestore直接）
       const { getLocalEvents } = await import('../services/local-calendar.service.js');
-      const events = await getLocalEvents(userId, 90);
+      const events = await getLocalEvents(userId, 365);
       res.json(events);
     }
   } catch (err) {
@@ -139,7 +139,7 @@ router.get('/events', async (req, res) => {
       // 認証エラーでもローカルにフォールバック
       try {
         const { getLocalEvents } = await import('../services/local-calendar.service.js');
-        const events = await getLocalEvents(userId, 90);
+        const events = await getLocalEvents(userId, 365);
         res.json(events);
       } catch (e2) {
         res.status(500).json({ error: e2.message });
