@@ -546,7 +546,7 @@ export function generateLiffHtml(liffId, apiBase) {
       color: var(--text-secondary);
       margin-top: 4px;
     }
-    .day-timeline { max-height: 450px; overflow-y: auto; }
+    .day-timeline { flex: 1; overflow-y: auto; }
     .timeline-row {
       display: flex;
       min-height: 60px;
@@ -2987,7 +2987,7 @@ export function generateLiffHtml(liffId, apiBase) {
 
       document.getElementById('event-submit').textContent = '更新';
       document.getElementById('event-submit').style.display = 'block';
-      document.getElementById('event-delete').style.display = 'none';
+      document.getElementById('event-delete').style.display = 'block';
       document.getElementById('event-modal').classList.add('active');
     }
 
