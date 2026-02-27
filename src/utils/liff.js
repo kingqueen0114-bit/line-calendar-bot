@@ -1068,6 +1068,63 @@ export function generateLiffHtml(liffId, apiBase) {
       margin-top: 2px;
     }
 
+    /* リンクプレビューカード */
+    .link-preview {
+      display: flex;
+      border: 1px solid var(--border, #e0e0e0);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 8px;
+      background: var(--card-bg, #fff);
+      text-decoration: none;
+      color: inherit;
+      transition: box-shadow 0.2s;
+      max-width: 100%;
+    }
+    .link-preview:active {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+    .link-preview-image {
+      width: 80px;
+      min-height: 80px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--bg-muted, #f5f5f5);
+    }
+    .link-preview-body {
+      flex: 1;
+      padding: 8px 10px;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .link-preview-title {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      color: var(--text, #333);
+    }
+    .link-preview-desc {
+      font-size: 11px;
+      color: var(--text-muted, #888);
+      margin-top: 2px;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .link-preview-site {
+      font-size: 10px;
+      color: var(--accent, #06c755);
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .memo-empty {
       text-align: center;
       padding: 60px 20px;
@@ -1669,6 +1726,18 @@ export function generateLiffHtml(liffId, apiBase) {
           <label class="form-label">メモ（任意）</label>
           <textarea class="form-input" id="event-memo" placeholder="メモを入力" rows="2" style="resize:none;"></textarea>
         </div>
+        <div class="form-group">
+          <label class="form-label">🔔 リマインダー</label>
+          <select class="form-select" id="event-reminder">
+            <option value="">なし</option>
+            <option value="5">5分前</option>
+            <option value="10">10分前</option>
+            <option value="15" selected>15分前</option>
+            <option value="30">30分前</option>
+            <option value="60">1時間前</option>
+            <option value="1440">1日前</option>
+          </select>
+        </div>
         <button class="btn btn-primary" id="event-submit" onclick="submitEvent()">追加</button>
         <button class="btn btn-danger" id="event-delete" style="display:none;" onclick="deleteEvent()">削除</button>
       </div>
@@ -1694,6 +1763,15 @@ export function generateLiffHtml(liffId, apiBase) {
         <div class="form-group">
           <label class="form-label">リスト</label>
           <select class="form-select" id="task-list-select"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">🔔 リマインダー</label>
+          <select class="form-select" id="task-reminder">
+            <option value="" selected>なし</option>
+            <option value="morning">当日の朝 (9:00)</option>
+            <option value="1440">1日前</option>
+            <option value="2880">2日前</option>
+          </select>
         </div>
         <div id="task-create-btns">
           <button class="btn btn-primary" id="task-submit" onclick="submitTask()">追加</button>
@@ -3240,7 +3318,14 @@ export function generateLiffHtml(liffId, apiBase) {
             html += '<img class="memo-card-image" src="' + memo.imageUrl + '" alt="">';
           }
           html += '<div class="memo-card-content">';
-          html += '<div class="memo-card-text" style="white-space: pre-wrap; word-wrap: break-word;">' + (hasText ? escapeHtml(memo.text) : '画像メモ') + '</div>';
+          html += '<div class="memo-card-text" style="white-space: pre-wrap; word-wrap: break-word;">' + (hasText ? linkifyText(memo.text) : '画像メモ') + '</div>';
+          // URL プレビュー用プレースホルダー
+          if (hasText) {
+            const urls = extractUrls(memo.text);
+            urls.forEach(u => {
+              html += '<div class="link-preview-placeholder" data-url="' + escapeHtml(u) + '"></div>';
+            });
+          }
           html += '<div class="memo-card-date">' + formatMemoDate(memo.createdAt) + '</div>';
           html += '</div>';
         } else {
@@ -3250,7 +3335,12 @@ export function generateLiffHtml(liffId, apiBase) {
           }
           html += '<div class="memo-card-content">';
           if (hasText) {
-            html += '<div class="memo-card-text" style="white-space: pre-wrap; word-wrap: break-word;">' + escapeHtml(memo.text) + '</div>';
+            html += '<div class="memo-card-text" style="white-space: pre-wrap; word-wrap: break-word;">' + linkifyText(memo.text) + '</div>';
+            // URL プレビュー用プレースホルダー
+            const urls = extractUrls(memo.text);
+            urls.forEach(u => {
+              html += '<div class="link-preview-placeholder" data-url="' + escapeHtml(u) + '"></div>';
+            });
           }
           html += '<div class="memo-card-date">' + formatMemoDate(memo.createdAt) + '</div>';
           html += '</div>';
@@ -3261,12 +3351,72 @@ export function generateLiffHtml(liffId, apiBase) {
 
       html += '</div>';
       container.innerHTML = html;
+
+      // 非同期でリンクプレビューを読み込み
+      loadLinkPreviews();
     }
 
     function setMemoStyle(style) {
       memoStyle = style;
       localStorage.setItem('memoStyle', style);
       renderMemos();
+    }
+
+    // URL抽出
+    function extractUrls(text) {
+      const urlRegex = /https?:\/\/[^\s\u3000\u300C\u300D\u3001\u3002\uFF01\uFF08\uFF09]+/g;
+      const matches = text.match(urlRegex) || [];
+      // 最大3つまで
+      return [...new Set(matches)].slice(0, 3);
+    }
+
+    // テキスト内のURLをクリッカブルリンクに変換
+    function linkifyText(text) {
+      const escaped = escapeHtml(text);
+      return escaped.replace(/(https?:\/\/[^\s\u3000\u300C\u300D\u3001\u3002\uFF01\uFF08\uFF09&]+(?:&amp;[^\s\u3000\u300C\u300D\u3001\u3002\uFF01\uFF08\uFF09&]*)*)/g,
+        '<a href="$1" target="_blank" rel="noopener" style="color:var(--accent);word-break:break-all;" onclick="event.stopPropagation()">$1</a>'
+      );
+    }
+
+    // リンクプレビューを非同期で読み込み
+    const ogpCache = new Map();
+    async function loadLinkPreviews() {
+      const placeholders = document.querySelectorAll('.link-preview-placeholder');
+      if (!placeholders.length) return;
+
+      for (const el of placeholders) {
+        const url = el.dataset.url;
+        if (!url) continue;
+
+        try {
+          let data;
+          if (ogpCache.has(url)) {
+            data = ogpCache.get(url);
+          } else {
+            const res = await fetch(API_BASE + '/api/ogp?url=' + encodeURIComponent(url));
+            data = await res.json();
+            ogpCache.set(url, data);
+          }
+
+          if (!data || !data.title) continue;
+
+          let previewHtml = '<a class="link-preview" href="' + escapeHtml(url) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">';
+          if (data.image) {
+            previewHtml += '<img class="link-preview-image" src="' + escapeHtml(data.image) + '" alt="" onerror="this.style.display=\'none\'">';
+          }
+          previewHtml += '<div class="link-preview-body">';
+          previewHtml += '<div class="link-preview-title">' + escapeHtml(data.title) + '</div>';
+          if (data.description) {
+            previewHtml += '<div class="link-preview-desc">' + escapeHtml(data.description) + '</div>';
+          }
+          previewHtml += '<div class="link-preview-site">' + escapeHtml(data.siteName || '') + '</div>';
+          previewHtml += '</div></a>';
+
+          el.innerHTML = previewHtml;
+        } catch (e) {
+          // プレビュー取得失敗は無視
+        }
+      }
     }
 
     function formatMemoDate(dateStr) {
@@ -3951,6 +4101,7 @@ export function generateLiffHtml(liffId, apiBase) {
       document.getElementById('event-url').value = '';
       document.getElementById('event-memo').value = '';
       document.getElementById('event-submit').textContent = '追加';
+      document.getElementById('event-reminder').value = '15';
       document.getElementById('event-submit').style.display = 'block';
       document.getElementById('event-delete').style.display = 'none';
       document.getElementById('event-modal').classList.add('active');
@@ -4137,6 +4288,7 @@ export function generateLiffHtml(liffId, apiBase) {
       const location = document.getElementById('event-location').value.trim();
       const url = document.getElementById('event-url').value.trim();
       const memo = document.getElementById('event-memo').value.trim();
+      const reminder = document.getElementById('event-reminder').value;
 
       if (!title || !date) {
         showToast('タイトルと日付を入力してください');
@@ -4153,7 +4305,7 @@ export function generateLiffHtml(liffId, apiBase) {
           await fetch(API_BASE + '/api/shared-events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, projectId, title, date, isAllDay, startTime: isAllDay ? null : startTime, endTime: isAllDay ? null : endTime, location, url, memo })
+            body: JSON.stringify({ userId, projectId, title, date, isAllDay, startTime: isAllDay ? null : startTime, endTime: isAllDay ? null : endTime, location, url, memo, reminder })
           });
           await loadSharedEvents();
         } else {
@@ -4161,7 +4313,7 @@ export function generateLiffHtml(liffId, apiBase) {
           const response = await fetch(API_BASE + '/api/events', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, title, date, isAllDay, startTime, endTime, location, url, memo })
+            body: JSON.stringify({ userId, title, date, isAllDay, startTime, endTime, location, url, memo, reminder })
           });
           if (!response.ok) {
             const err = await response.json();
@@ -4221,6 +4373,7 @@ export function generateLiffHtml(liffId, apiBase) {
       const title = document.getElementById('task-title').value.trim();
       const due = document.getElementById('task-due').value || null;
       const listValue = document.getElementById('task-list-select').value;
+      const reminder = document.getElementById('task-reminder').value;
 
       if (!title) {
         showToast('タイトルを入力してください');
@@ -4237,7 +4390,7 @@ export function generateLiffHtml(liffId, apiBase) {
           await fetch(API_BASE + '/api/shared-tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, listId, title, due })
+            body: JSON.stringify({ userId, listId, title, due, reminder })
           });
           await loadSharedTasks();
         } else {
@@ -4246,7 +4399,7 @@ export function generateLiffHtml(liffId, apiBase) {
           await fetch(API_BASE + '/api/tasks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, title, due, listName })
+            body: JSON.stringify({ userId, title, due, listName, reminder })
           });
           await loadTasks();
         }

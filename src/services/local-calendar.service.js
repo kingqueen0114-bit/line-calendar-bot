@@ -21,6 +21,7 @@ export async function createLocalEvent(userId, eventData) {
         description: eventData.memo || eventData.description || '',
         htmlLink: eventData.url || '',
         isLocal: true,
+        reminder: eventData.reminder || null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
     };
@@ -97,6 +98,7 @@ export async function createLocalTask(userId, taskData) {
         isLocal: true,
         listId: 'local',
         listTitle: 'マイタスク',
+        reminder: taskData.reminder || null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
     };

@@ -5,6 +5,7 @@ import express from 'express';
 import liffRoute from './routes/liff.route.js';
 import authRoute from './routes/auth.route.js';
 import apiRoute from './routes/api.route.js';
+import ogpRoute from './routes/ogp.route.js';
 import webhookRoute from './routes/webhook.route.js';
 import { runScheduledTask } from './app.js';
 
@@ -40,6 +41,7 @@ app.use('/liff', liffRoute);
 app.use('/oauth', authRoute);
 app.use('/auth/google', authRoute); // OAUTH_REDIRECT_URI 互換 (/auth/google/callback)
 app.use('/api', apiRateLimit, apiRoute);
+app.use('/api', apiRateLimit, ogpRoute);
 app.use('/webhook', webhookRoute);
 
 // LINE Webhook はルート(/)にもマウントしておく（互換性確保用）

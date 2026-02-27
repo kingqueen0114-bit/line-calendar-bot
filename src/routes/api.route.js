@@ -320,7 +320,7 @@ router.post('/tasks/update', async (req, res) => {
 // 予定作成
 router.post('/events', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, title, date, startTime, endTime, isAllDay, location, url, memo } = req.body;
+  const { userId, title, date, startTime, endTime, isAllDay, location, url, memo, reminder } = req.body;
 
   if (!userId || !title || !date) {
     return res.status(400).json({ error: 'userId, title, date required' });
@@ -334,7 +334,7 @@ router.post('/events', async (req, res) => {
       startTime: startTime || '09:00',
       endTime: endTime || '10:00',
       isAllDay: isAllDay || false,
-      location, url, memo
+      location, url, memo, reminder: reminder || null
     };
 
     if (await isUserAuthenticated(userId, env)) {
@@ -452,7 +452,7 @@ router.get('/tasklists', async (req, res) => {
 // タスク作成
 router.post('/tasks', async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
-  const { userId, title, due, listName } = req.body;
+  const { userId, title, due, listName, reminder } = req.body;
 
   if (!userId || !title) {
     return res.status(400).json({ error: 'userId, title required' });
@@ -466,6 +466,10 @@ router.post('/tasks', async (req, res) => {
       const { createTask } = await import('../services/google-tasks.service.js');
       const taskData = { title, due, listName };
       const result = await createTask(taskData, userId, env);
+      // リマインダー設定をKVに保存
+      if (reminder && result.id) {
+        await env.NOTIFICATIONS.put(`reminder:task:${userId}:${result.id}`, JSON.stringify({ reminder, due }), { expirationTtl: 30 * 86400 });
+      }
       res.json(result);
     } else {
       const { createLocalTask } = await import('../services/local-calendar.service.js');
